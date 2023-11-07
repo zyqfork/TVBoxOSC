@@ -31,6 +31,9 @@ jobs:
           - userName: takagen99
             repoName: Box
             branchName: main
+          - userName: FongMi
+            repoName: TV
+            branchName: main
     steps:
       - name: Checkout
         uses: actions/checkout@v3
