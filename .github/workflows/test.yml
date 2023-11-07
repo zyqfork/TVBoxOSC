@@ -59,10 +59,9 @@ jobs:
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
         run: |
+          if [[ "${{ matrix.userName }}" != "FongMi" ]]; then
           echo '修改VersionName'
           sed -i "/versionName/s#[0-9a-zA-Z_\.\'\"-]\+\$#\'${{ env.tag }}\'#" app/build.gradle
-          
-          if [[ "${{ matrix.userName }}" != "FongMi" ]]; then
           sed -i "/android:text=/s#=\"#=\"${{ env.tag }}\\\\n\\\\n#" app/src/main/res/layout/dialog_about.xml
           fi
 
