@@ -113,9 +113,13 @@ jobs:
         run: |
           rm -rf apk/
           mkdir -p apk/
-          for file in `find ~ -name "*release*.apk" -print`; do
-            mv "$file" apk/TVBox_${{ matrix.userName }}_${{ env.tag }}.apk
+          
+          find ~ -type d -name "release" -print0 | while IFS= read -r -d '' dir; do
+             find "$dir" -type f -name "*.apk" -exec cp {} apk/ \;
           done
+
+
+
       - name: Release Note
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
