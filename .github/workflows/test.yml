@@ -100,9 +100,9 @@ jobs:
           sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC'         ./gradle.properties
       - name: Setup Java
         uses: actions/setup-java@v3
-          with:
-            distribution: 'oracle'
-            java-version: '11'
+        with:
+          distribution: 'oracle'
+          java-version: '11'
       - name: Setup Gradle
         if: ${{ env.commit }}
         uses: gradle/gradle-build-action@v2
