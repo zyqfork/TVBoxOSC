@@ -99,13 +99,13 @@ jobs:
           sed -i '$a\RELEASE_STORE_PASSWORD=TVBoxOSC'       ./gradle.properties
           sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC'         ./gradle.properties
       - name: Setup Java
-        
-      - name: Setup Java & Gradle
         if: ${{ env.commit }}
         uses: actions/setup-java@v3
         with:
           distribution: 'oracle'
           java-version: '11'
+      - name: Setup Gradle
+        if: ${{ env.commit }}
         uses: gradle/gradle-build-action@v2
       - name: Build With Gradle
         if: ${{ env.commit }}
