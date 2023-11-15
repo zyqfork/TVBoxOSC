@@ -102,7 +102,7 @@ jobs:
         if: ${{ env.commit }}
         uses: actions/setup-java@v3
         with:
-          distribution: 'oracle'
+          distribution: 'temurin'
           java-version: '11'
       - name: Setup Gradle
         if: ${{ env.commit }}
