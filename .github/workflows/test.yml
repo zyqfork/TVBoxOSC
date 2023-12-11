@@ -31,7 +31,7 @@ jobs:
           - userName: takagen99
             repoName: Box
             branchName: main
-          - userName: zouyq
+          - userName: zyqfork
             repoName: Box
             branchName: main
           - userName: FongMi
