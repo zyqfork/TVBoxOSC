@@ -31,6 +31,9 @@ jobs:
           - userName: takagen99
             repoName: Box
             branchName: main
+          - userName: zouyq
+            repoName: Box
+            branchName: main
           - userName: FongMi
             repoName: TV
             branchName: release
