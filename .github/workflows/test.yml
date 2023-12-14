@@ -122,7 +122,7 @@ jobs:
         run: |
           rm -rf apk/
           mkdir -p apk/
-          find ~ -type d -name "release" -print0 | while IFS= read -r -d '' dir; do
+          find ~ -type d -iname "release" -print0 | while IFS= read -r -d '' dir; do
             find "$dir" -type f -name "*.apk" -exec sh -c 'cp "$1" "apk/${{ matrix.userName }}-${{ matrix.repoName }}-${1##*/}"' sh {} \;
           done
       - name: Release Note
