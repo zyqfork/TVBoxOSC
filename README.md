@@ -12,6 +12,6 @@ This repo relies on the following third-party projects:
 - [takagen99/Box](https://github.com/takagen99/Box) (Updated: 408739776676a1f14933abe0d9b8ecf902c05d37)
 - [zyqfork/Box](https://github.com/zyqfork/Box) (Updated: c5c530f54ba932e9289b4fef2221107d11ee9c10)
 - [FongMi/TV](https://github.com/FongMi/TV) (Updated: e3fb2487fcdbba6317c79ab82bd690bd42f29b3a)
-- [mlabalabala/box](https://github.com/mlabalabala/box) (Updated: 6283f09884ad85ca52c17afe19a916ba287f18f6)
+- [mlabalabala/box](https://github.com/mlabalabala/box) (Updated: c6284218fb419da24933f9844eee39369707ba60)
 
-#### update at 2023-12-18 04:33:59
+#### update at 2023-12-20 02:25:08
