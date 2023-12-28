@@ -158,12 +158,11 @@ jobs:
             TVBoxOSC/apk/*.apk
             TVBoxOSC/source-${{ env.commitS }}.*
       
-
       - name: Remove old Artifacts
         uses: c-hive/gha-remove-artifacts@v1.3.0
         with:
-          age: '1 day'
-          skip-recent: 3
+          age: '5 day'
+          skip-recent: 5
 
       - name: Remove old Releases
         uses: mslovecc/delete-older-releases@v0.1.0
