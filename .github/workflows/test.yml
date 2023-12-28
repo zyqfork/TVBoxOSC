@@ -157,6 +157,23 @@ jobs:
           artifacts: |
             TVBoxOSC/apk/*.apk
             TVBoxOSC/source-${{ env.commitS }}.*
+      
+
+      - name: Remove old Artifacts
+        uses: c-hive/gha-remove-artifacts@v1.3.0
+        with:
+          age: '1 day'
+          skip-recent: 3
+
+      - name: Remove old Releases
+        uses: mslovecc/delete-older-releases@v0.1.0
+        if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+        with:
+          keep_latest: 3
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Push to master
         if: ${{ env.commit }}
         run: |
