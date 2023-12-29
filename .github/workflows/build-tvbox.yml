@@ -191,3 +191,15 @@ jobs:
           git add --all
           git commit -m "${{ env.commit }}"
           git push -u -f origin master
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Delete workflow runs
+      uses: GitRML/delete-workflow-runs@main
+      with:
+        retain_days: 1
+        keep_minimum_runs: 3
+          
+
+  
+
