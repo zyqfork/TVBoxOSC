@@ -11,6 +11,6 @@ This repo relies on the following third-party projects:
 - [q215613905/TVBoxOS](https://github.com/q215613905/TVBoxOS) (Updated: a545c27b99b6d6d9e54196b8a0adcf3b56a97ddf)
 - [takagen99/Box](https://github.com/takagen99/Box) (Updated: 94a61e8a5008f9e3d5ff9a2d297d58602e8a0f5f)
 - [FongMi/TV](https://github.com/FongMi/TV) (Updated: 317c331551a18bfd753a46311e1b4c8cdeea8660)
-- [mlabalabala/box](https://github.com/mlabalabala/box) (Updated: 69619191df01a7989728470bc3bf630233443d23)
+- [mlabalabala/box](https://github.com/mlabalabala/box) (Updated: 62e5384570e2cc23e5d67c8ebf4737dde98d91cc)
 
-#### update at 2024-01-08 03:28:36
+#### update at 2024-01-08 04:30:54
