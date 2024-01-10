@@ -10,7 +10,7 @@ This repo relies on the following third-party projects:
 - [CatVodTVOfficial/TVBoxOSC](https://github.com/CatVodTVOfficial/TVBoxOSC)
 - [q215613905/TVBoxOS](https://github.com/q215613905/TVBoxOS) (Updated: a545c27b99b6d6d9e54196b8a0adcf3b56a97ddf)
 - [takagen99/Box](https://github.com/takagen99/Box) (Updated: 02cd76e832dc6ccc97c5ef9d47a88f1492cb2419)
-- [FongMi/TV](https://github.com/FongMi/TV) (Updated: 470a7af8599a1615d2ce44c2aae81d77f71f5422)
+- [FongMi/TV](https://github.com/FongMi/TV) (Updated: cf04b1451a7e23ddae8b3191f07c56756e4a1757)
 - [mlabalabala/box](https://github.com/mlabalabala/box) (Updated: bfa76759c3b34acbf0338a02e34987b267a53701)
 
-#### update at 2024-01-10 03:53:17
+#### update at 2024-01-10 18:43:43
