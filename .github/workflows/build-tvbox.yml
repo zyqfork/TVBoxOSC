@@ -173,6 +173,7 @@ jobs:
       - uses: dev-drprasad/delete-older-releases@master
         with:
           keep_latest: 3
+          delete_tags: true
           delete_tag_pattern: ${{ matrix.userName }}_${{ matrix.repoName }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
