@@ -104,7 +104,7 @@ jobs:
           sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC'         ./gradle.properties
 
       - name: Setup Java
-        if: ${{ env.commit && (matrix.userName == 'FongMi' || matrix.userName == 'takagen99') }}
+        if: ${{ env.commit && (matrix.userName == 'FongMi') }}
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
