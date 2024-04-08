@@ -2,7 +2,7 @@ name: build-tvbox
 
 on:
   schedule:
-    - cron: 15,45 0-18,22-23 * * *
+    - cron: 0 20 * * *
   workflow_dispatch:
     inputs:
       rebuild:
