@@ -33,7 +33,7 @@ jobs:
             branchName: main
           - userName: FongMi
             repoName: TV
-            branchName: release
+            branchName: kitkat
           - userName: mlabalabala
             repoName: box
             branchName: main
