@@ -65,6 +65,10 @@ jobs:
           cd TVBoxOSC
           git checkout ${{ env.commit }}
           echo "tag=$(git log --date=format:'%Y%m%d-%H%M' --pretty=format:%cd ${{ env.commitS }} -1)" >> $GITHUB_ENV
+          if [[ "${{ matrix.userName }}" == "FongMi" && "${{ matrix.branchName }}" == "kitkat" ]]; then
+            git clone https://github.com/androidx/media.git
+            sed -i 's|apply from: file("/media/core_settings.gradle")|apply from: file("./media/core_settings.gradle")|g' settings.gradle
+          fi
 
       - name: Extra Modify
         if: ${{ env.commit }}
@@ -123,7 +127,7 @@ jobs:
       - name: Checkout media Source Code
         if: ${{ env.commit && (matrix.userName == 'FongMi' && matrix.branchName =='kitkat') }}
         run: |
-          git clone https://github.com/androidx/media.git /media
+          git clone https://github.com/androidx/media.git media
 
       - name: Setup Gradle
         if: ${{ env.commit }}
