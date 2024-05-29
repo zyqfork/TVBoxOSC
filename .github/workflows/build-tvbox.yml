@@ -117,17 +117,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Java 8
+      - name: Setup Java 11
         if: ${{ env.commit && (matrix.userName == 'FongMi' && matrix.branchName =='kitkat') }}
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '8'
-
-      - name: Checkout media Source Code
-        if: ${{ env.commit && (matrix.userName == 'FongMi' && matrix.branchName =='kitkat') }}
-        run: |
-          git clone https://github.com/androidx/media.git media
+          java-version: '11'
 
       - name: Setup Gradle
         if: ${{ env.commit }}
