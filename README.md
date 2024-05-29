@@ -12,8 +12,7 @@ This repo relies on the following third-party projects:
 - [takagen99/Box/main](https://github.com/takagen99/Box) (Updated: 38f50818d5531aacff629d741890b22844d6c19f)
 - [FongMi/TV/release](https://github.com/FongMi/TV) (Updated: 8c9978da5ade81de30e335e1c5ca7d84197c33ef)
 - [FongMi/TV/kitkat](https://github.com/FongMi/TV) (Updated: 8c9978da5ade81de30e335e1c5ca7d84197c33ef)
-- [Klosw/Box/dev-4.4](https://github.com/FongMi/TV) (Updated: 346cc27c9dc066bcdba9bd541cf89c6d69b6cf1b)
+- [Klosw/Box/dev-4.4](https://github.com/Klosw/Box) (Updated: 346cc27c9dc066bcdba9bd541cf89c6d69b6cf1b)
 - [mlabalabala/box/main](https://github.com/mlabalabala/box) (Updated: 918ac3f26bc347250a1cd4938897040e2c277a60)
-- [Klosw/Box17/main](https://github.com/zyqfork/Box17) (Updated: a2257784034f6f36764a7ab5a68eca46c856b566)
 
 #### update at 2024-05-29 05:07:54
