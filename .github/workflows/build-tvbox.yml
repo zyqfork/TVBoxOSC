@@ -119,6 +119,9 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '8'
+
+      - name: Checkout media Source Code
+        if: ${{ env.commit && (matrix.userName == 'FongMi' && matrix.branchName =='kitkat') }}
         run: |
           git clone https://github.com/androidx/media.git /media
 
