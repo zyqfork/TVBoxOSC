@@ -68,6 +68,7 @@ jobs:
           if [[ "${{ matrix.userName }}" == "FongMi" && "${{ matrix.branchName }}" == "kitkat" ]]; then
             git clone https://github.com/androidx/media.git
             sed -i 's|apply from: file("/media/core_settings.gradle")|apply from: file("./media/core_settings.gradle")|g' settings.gradle
+            touch local.properties
           fi
 
       - name: Extra Modify
