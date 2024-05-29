@@ -117,7 +117,7 @@ jobs:
           java-version: '17'
 
       - name: Setup Java 11
-        if: ${{ env.commit && ((matrix.userName == 'FongMi' && matrix.branchName =='kitkat') }}
+        if: ${{ env.commit && (matrix.userName == 'FongMi' && matrix.branchName =='kitkat') }}
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
