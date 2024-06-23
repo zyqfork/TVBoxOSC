@@ -13,6 +13,6 @@ This repo relies on the following third-party projects:
 - [FongMi/TV/release](https://github.com/FongMi/TV) (Updated: 304175ee8c5ee1cb1807b3b466365c84f446bf53)
 - [FongMi/TV/kitkat](https://github.com/FongMi/TV) (Updated: 8c9978da5ade81de30e335e1c5ca7d84197c33ef)
 - [Klosw/Box/dev-4.4](https://github.com/Klosw/Box) (Updated: 346cc27c9dc066bcdba9bd541cf89c6d69b6cf1b)
-- [mlabalabala/box/main](https://github.com/mlabalabala/box) (Updated: f730625b4f1a3d098d9abad5c791dbffbaf0f56e)
+- [mlabalabala/box/main](https://github.com/mlabalabala/box) (Updated: bce4dde609a7b5d33f86c93aaa45152e220d0a15)
 
-#### update at 2024-06-21 20:12:31
+#### update at 2024-06-23 20:10:51
