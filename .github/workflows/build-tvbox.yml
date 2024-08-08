@@ -141,7 +141,7 @@ jobs:
         if: ${{ env.commit }}
         uses: gradle/gradle-build-action@v3
         with:
-          cache-disabled: true
+          cache-disabled: false
 
       - name: Build With Gradle
         if: ${{ env.commit }}
