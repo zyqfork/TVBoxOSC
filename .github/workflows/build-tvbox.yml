@@ -113,18 +113,19 @@ jobs:
           sed -i '$a\RELEASE_STORE_PASSWORD=TVBoxOSC'       ./gradle.properties
           sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC'         ./gradle.properties
 
+
+      - name: Setup Java 11
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
       - name: Setup Java 17
         if: ${{ env.commit && ((matrix.userName == 'FongMi' && matrix.branchName =='release') || matrix.userName == 'takagen99') }}
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: |
-            8
-            11
-            17
-            21
-
-
+          java-version: '17'
 
       - name: Fix Xwalk Library
         if: ${{ env.commit && matrix.userName == 'takagen99' }}
