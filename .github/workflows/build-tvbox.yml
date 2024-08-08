@@ -131,9 +131,9 @@ jobs:
         working-directory: TVBoxOSC
         run: |
           if grep -q 'crosswalk' build.gradle; then
-            sed -i "/crosswalk/a\   maven { url 'https://celetor.github.io/crosswalk/releases/crosswalk/android/maven2' }\n maven { url 'https://maven.aliyun.com/repository/jcenter' }" build.gradle
+            sed -i "/crosswalk/a\   maven { url 'https://o0halflife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }\n maven { url 'https://maven.aliyun.com/repository/jcenter' }" build.gradle
           else
-            sed -i "/jitpack.io/a\  maven { url 'https://celetor.github.io/crosswalk/releases/crosswalk/android/maven2' }\n maven { url 'https://maven.aliyun.com/repository/jcenter' }" build.gradle
+            sed -i "/jitpack.io/a\  maven { url 'https://o0halflife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }\n maven { url 'https://maven.aliyun.com/repository/jcenter' }" build.gradle
           fi
 
       - name: Setup Gradle
