@@ -148,7 +148,7 @@ jobs:
         working-directory: TVBoxOSC
         run: |
           chmod +x gradlew
-          ./gradlew assemblerelease --build-cache --parallel --daemon --warning-mode all
+          ./gradlew assemblerelease --parallel --daemon --warning-mode all
 
       - name: Prepare App
         if: ${{ env.commit }}
