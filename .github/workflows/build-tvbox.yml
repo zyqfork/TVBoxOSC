@@ -139,9 +139,9 @@ jobs:
 
       - name: Setup Gradle
         if: ${{ env.commit }}
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/gradle-build-action@v3
         with:
-          cache-disabled: false
+          cache-disabled: true
 
       - name: Build With Gradle
         if: ${{ env.commit }}
