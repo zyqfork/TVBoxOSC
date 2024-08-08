@@ -114,18 +114,11 @@ jobs:
           sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC'         ./gradle.properties
 
       - name: Setup Java 17
-        if: ${{ env.commit && ((matrix.userName == 'FongMi' && matrix.branchName =='release') || matrix.userName == 'takagen99') }}
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Java 11
-        if: ${{ env.commit && (matrix.userName == 'FongMi' && matrix.branchName =='kitkat') }}
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '11'
 
       - name: Fix Xwalk Library
         if: ${{ env.commit && matrix.userName == 'takagen99' }}
@@ -148,7 +141,7 @@ jobs:
         working-directory: TVBoxOSC
         run: |
           chmod +x gradlew
-          ./gradlew assemblerelease --parallel --daemon --warning-mode all
+          ./gradlew assemblerelease --build-cache --parallel --daemon --warning-mode all
 
       - name: Prepare App
         if: ${{ env.commit }}
