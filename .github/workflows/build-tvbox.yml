@@ -146,7 +146,9 @@ jobs:
       - name: Build With Gradle
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
-        run: ./gradlew build
+        run: |
+          chmod +x gradlew
+          ./gradlew build
 
       - name: Prepare App
         if: ${{ env.commit }}
