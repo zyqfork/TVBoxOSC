@@ -115,7 +115,7 @@ jobs:
 
       - name: Setup Java 17
         if: ${{ env.commit && ((matrix.userName == 'FongMi' && matrix.branchName =='release') || matrix.userName == 'takagen99') }}
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
@@ -127,9 +127,21 @@ jobs:
           distribution: 'temurin'
           java-version: '11'
 
+      - name: Fix Xwalk Library
+        if: ${{ env.commit && env.local_xwalk }}
+        working-directory: TVBoxOSC
+        run: |
+          if grep -q 'crosswalk' build.gradle; then
+            sed -i "/crosswalk/a\   maven { url 'https://celetor.github.io/crosswalk/releases/crosswalk/android/maven2' }\n maven { url 'https://maven.aliyun.com/repository/jcenter' }" build.gradle
+          else
+            sed -i "/jitpack.io/a\  maven { url 'https://celetor.github.io/crosswalk/releases/crosswalk/android/maven2' }\n maven { url 'https://maven.aliyun.com/repository/jcenter' }" build.gradle
+          fi
+
       - name: Setup Gradle
         if: ${{ env.commit }}
         uses: gradle/gradle-build-action@v2
+        with:
+          cache-disabled: false
 
       - name: Build With Gradle
         if: ${{ env.commit }}
