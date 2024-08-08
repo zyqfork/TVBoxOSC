@@ -118,14 +118,13 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: |
+            8
+            11
+            17
+            21
 
-      - name: Setup Java 11
-        if: ${{ env.commit && (matrix.userName == 'FongMi' && matrix.branchName =='kitkat') }}
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '11'
+
 
       - name: Fix Xwalk Library
         if: ${{ env.commit && matrix.userName == 'takagen99' }}
