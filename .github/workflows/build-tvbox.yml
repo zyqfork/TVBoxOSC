@@ -128,7 +128,6 @@ jobs:
           java-version: '11'
 
       - name: Fix Xwalk Library
-        if: ${{ env.commit && env.local_xwalk }}
         working-directory: TVBoxOSC
         run: |
           if grep -q 'crosswalk' build.gradle; then
