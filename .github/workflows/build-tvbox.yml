@@ -119,8 +119,7 @@ jobs:
           sed -i '$a\RELEASE_STORE_PASSWORD=TVBoxOSC'       ./gradle.properties
           sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC'         ./gradle.properties
 
-      - name: Setup Java 17
-        if: ${{ env.commit && ((matrix.userName == 'FongMi' && matrix.branchName =='release') || matrix.userName == 'takagen99') }}
+      - name: Setup JDK
         uses: actions/setup-java@main
         with:
           distribution: 'temurin'
