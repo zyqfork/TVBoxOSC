@@ -28,21 +28,27 @@ jobs:
           - userName: q215613905
             repoName: TVBoxOS
             branchName: main
+            jdkVersion: 17
           - userName: takagen99
             repoName: Box
             branchName: main
+            jdkVersion: 11
           - userName: FongMi
             repoName: TV
             branchName: kitkat
+            jdkVersion: 17
           - userName: FongMi
             repoName: TV
             branchName: release
+            jdkVersion: 11
           - userName: mlabalabala
             repoName: box
             branchName: main
+            jdkVersion: 11
           - userName: Klosw
             repoName: Box
             branchName: dev-4.4
+            jdkVersion: 11
 
     steps:
       - name: Checkout
@@ -115,16 +121,10 @@ jobs:
 
       - name: Setup Java 17
         if: ${{ env.commit && ((matrix.userName == 'FongMi' && matrix.branchName =='release') || matrix.userName == 'takagen99') }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@main
         with:
           distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Java 11
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '11'
+          java-version: ${{ matrix.javaVersion }}
 
       - name: Fix Xwalk Library
         if: ${{ env.commit && matrix.userName == 'takagen99' }}
