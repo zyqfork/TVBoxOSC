@@ -28,7 +28,7 @@ jobs:
           - userName: q215613905
             repoName: TVBoxOS
             branchName: main
-            jdkVersion: 8
+            jdkVersion: 11
           - userName: takagen99
             repoName: Box
             branchName: main
@@ -44,11 +44,11 @@ jobs:
           - userName: mlabalabala
             repoName: box
             branchName: main
-            jdkVersion: 8
+            jdkVersion: 11
           - userName: Klosw
             repoName: Box
             branchName: dev-4.4
-            jdkVersion: 8
+            jdkVersion: 11
 
     steps:
       - name: Checkout
@@ -138,9 +138,7 @@ jobs:
 
       - name: Setup Gradle
         if: ${{ env.commit }}
-        uses: gradle/gradle-build-action@v2
-        with:
-          cache-disabled: true
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Build With Gradle
         if: ${{ env.commit }}
