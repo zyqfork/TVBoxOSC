@@ -35,10 +35,6 @@ jobs:
             jdkVersion: 17
           - userName: FongMi
             repoName: TV
-            branchName: kitkat
-            jdkVersion: 17
-          - userName: FongMi
-            repoName: TV
             branchName: release
             jdkVersion: 17
           - userName: mlabalabala
@@ -72,22 +68,7 @@ jobs:
           cd TVBoxOSC
           git checkout ${{ env.commit }}
           echo "tag=$(git log --date=format:'%Y%m%d-%H%M' --pretty=format:%cd ${{ env.commitS }} -1)" >> $GITHUB_ENV
-          if [[ "${{ matrix.userName }}" == "FongMi" && "${{ matrix.branchName }}" == "kitkat" ]]; then
-            git clone https://github.com/androidx/media.git
-            sed -i 's|apply from: file("/media/core_settings.gradle")|apply from: file("./media/core_settings.gradle")|g' settings.gradle
-            touch local.properties
-            sed -i '/buildPython/d' ./pyramid/build.gradle 
-          fi
 
-      - name: Extra Modify
-        if: ${{ env.commit }}
-        working-directory: TVBoxOSC
-        run: |
-          if [[ "${{ matrix.userName }}" != "FongMi" ]]; then
-            echo '修改VersionName'
-            sed -i "/versionName/s#[0-9a-zA-Z_\.\'\"-]\+\$#\'${{ env.tag }}\'#" app/build.gradle
-            sed -i "/android:text=/s#=\"#=\"${{ env.tag }}\\\\n\\\\n#" app/src/main/res/layout/dialog_about.xml
-          fi
 
       - name: Compress Source Code
         if: ${{ env.commit }}
@@ -148,6 +129,8 @@ jobs:
         working-directory: TVBoxOSC
         run: |
           chmod +x gradlew
+          ./gradlew assemblerelease --build-cache --parallel --daemon --warning-mode all
+          git checkout kitkat
           ./gradlew assemblerelease --build-cache --parallel --daemon --warning-mode all
 
       - name: Prepare App
