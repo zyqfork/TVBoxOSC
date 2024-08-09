@@ -28,19 +28,19 @@ jobs:
           - userName: q215613905
             repoName: TVBoxOS
             branchName: main
-            jdkVersion: 17
+            jdkVersion: 11
           - userName: takagen99
             repoName: Box
             branchName: main
-            jdkVersion: 11
-          - userName: FongMi
-            repoName: TV
-            branchName: kitkat
             jdkVersion: 17
           - userName: FongMi
             repoName: TV
-            branchName: release
+            branchName: kitkat
             jdkVersion: 11
+          - userName: FongMi
+            repoName: TV
+            branchName: release
+            jdkVersion: 17
           - userName: mlabalabala
             repoName: box
             branchName: main
@@ -120,10 +120,11 @@ jobs:
           sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC'         ./gradle.properties
 
       - name: Setup JDK
+        if: ${{ env.commit }}
         uses: actions/setup-java@main
         with:
           distribution: 'temurin'
-          java-version: ${{ matrix.javaVersion }}
+          java-version: ${{ matrix.jdkVersion }}
 
       - name: Fix Xwalk Library
         if: ${{ env.commit && matrix.userName == 'takagen99' }}
@@ -219,6 +220,7 @@ jobs:
           git add --all
           git commit -m "${{ env.commit }}"
           git push -u -f origin master
+
   clean:
     runs-on: ubuntu-latest
     steps:
@@ -231,7 +233,3 @@ jobs:
       - uses: fabriziocacicia/delete-tags-without-release-action@v0.1.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-
-
