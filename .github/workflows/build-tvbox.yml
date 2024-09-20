@@ -69,16 +69,6 @@ jobs:
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
         run: |
-          echo '修改VersionName'
-          if [ "${{ matrix.userName }}" == "takagen99" ]; then
-            # 进行 sed 修改
-            sed -i 's/\.concat(buildTime())/ +\"${{ env.tag }}\"/g' app/build.gradle 
-            # 目前关于页面没有合并我的分支
-            sed -i "/android:text=/s#=\"#=\"${{ env.tag }}\\\\n\\\\n#" app/src/main/res/layout/dialog_about.xml
-          else
-             sed -i "/versionName/s#[0-9a-zA-Z_\.\'\"-]\+\$#\'${{ env.tag }}\'#" app/build.gradle
-             sed -i "/android:text=/s#=\"#=\"${{ env.tag }}\\\\n\\\\n#" app/src/main/res/layout/dialog_about.xml
-          fi 
           echo 'crosswalk源，防挂'
           if grep -q 'crosswalk' build.gradle; then
             sed -i "/crosswalk/a\        maven { url 'https://o0halflife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
@@ -209,3 +199,9 @@ jobs:
           repository: ${{ github.repository }}
           retain_days: 14
           keep_minimum_runs: 10
+
+      - uses: Nats-ji/delete-old-releases@v1
+        with:
+          token: ${{ github.token }}
+          keep-count: 2
+          keep-old-minor-releases: false
