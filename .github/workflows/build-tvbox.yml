@@ -200,8 +200,11 @@ jobs:
           retain_days: 14
           keep_minimum_runs: 10
 
-      - uses: Nats-ji/delete-old-releases@v1
+      - name: Delete releases and workflows runs
+        uses: ophub/delete-releases-workflows@main
         with:
-          token: ${{ github.token }}
-          keep-count: 2
-          keep-old-minor-releases: false
+         delete_releases: true
+         releases_keep_latest: 5
+         delete_workflows: true
+         workflows_keep_day: 10
+         gh_token: ${{ secrets.GITHUB_TOKEN }}
