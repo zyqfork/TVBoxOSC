@@ -192,19 +192,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Delete older workflow runs and artifacts
-        uses: Mattraks/delete-workflow-runs@main
-        with:
-          token: ${{ github.token }}
-          repository: ${{ github.repository }}
-          retain_days: 14
-          keep_minimum_runs: 10
-
-      - name: Delete releases and workflows runs
-        uses: ophub/delete-releases-workflows@main
-        with:
-         delete_releases: true
-         releases_keep_latest: 5
-         delete_workflows: true
-         workflows_keep_day: 10
-         gh_token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Delete workflow runs
+      uses: GitRML/delete-workflow-runs@main
+      with:
+        retain_days: 1
+        keep_minimum_runs: 3
