@@ -32,7 +32,7 @@ jobs:
           - userName: FongMi
             repoName: TV
             branchName: release
-            jdkVersion: 17
+            jdkVersion: 11
           - userName: mlabalabala
             repoName: box
             branchName: main
