@@ -28,6 +28,7 @@ jobs:
           - userName: takagen99
             repoName: Box
             branchName: main
+            jdkVersion: 17
           - userName: chengxue2020
             repoName: takagen99
             branchName: main
