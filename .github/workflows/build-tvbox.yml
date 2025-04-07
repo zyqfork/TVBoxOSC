@@ -121,6 +121,12 @@ jobs:
         if: ${{ env.commit }}
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Setup Python
+        if: ${{ env.commit }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'  # 使用特定版本的Python
+
       - name: Create local.properties
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
