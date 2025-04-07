@@ -84,6 +84,7 @@ jobs:
             sed -i "/jitpack.io/a\        maven { url 'https://o0halflife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
           fi
           if [ -f "pyramid/build.gradle" ]; then
+            python3 -m venv venv
             source venv/bin/activate
             python -m pip install --upgrade pip setuptools wheel
             pip install six urllib3
