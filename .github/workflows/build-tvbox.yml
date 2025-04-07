@@ -85,6 +85,8 @@ jobs:
           fi
           if [ -f "pyramid/build.gradle" ]; then
             sed -i 's|buildPython("D:/Programs/Python/Python38/python.exe")|buildPython("/usr/bin/python3")|g' pyramid/build.gradle
+            python -m pip install --upgrade pip
+            pip install six urllib3
           fi
           
 
@@ -120,12 +122,6 @@ jobs:
       - name: Setup Gradle
         if: ${{ env.commit }}
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Setup Python
-        if: ${{ env.commit }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.8'  # 使用特定版本的Python
 
       - name: Create local.properties
         if: ${{ env.commit }}
