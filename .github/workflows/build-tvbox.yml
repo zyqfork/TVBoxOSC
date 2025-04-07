@@ -83,6 +83,10 @@ jobs:
           else
             sed -i "/jitpack.io/a\        maven { url 'https://o0halflife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
           fi
+          if [ -f "pyramid/build.gradle" ]; then
+            sed -i 's|buildPython("D:/Programs/Python/Python38/python.exe")|buildPython("/usr/bin/python3")|g' pyramid/build.gradle
+          fi
+          
 
       - name: Compress Source Code
         if: ${{ env.commit }}
