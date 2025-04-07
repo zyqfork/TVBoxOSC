@@ -117,6 +117,12 @@ jobs:
         if: ${{ env.commit }}
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Create local.properties
+        if: ${{ env.commit }}
+        working-directory: TVBoxOSC
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
       - name: Build With Gradle
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
