@@ -86,7 +86,7 @@ jobs:
           if [ -f "pyramid/build.gradle" ]; then
             sed -i 's|buildPython("D:/Programs/Python/Python38/python.exe")|buildPython("/usr/bin/python3")|g' pyramid/build.gradle
             python -m pip install --upgrade pip
-            pip install six urllib3
+            pip install lxml ujson pyquery requests jsonpath cachetools pycryptodome beautifulsoup4
           fi
           
 
