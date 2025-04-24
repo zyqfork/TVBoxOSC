@@ -85,6 +85,8 @@ jobs:
           fi
           if [ -f "pyramid/build.gradle" ]; then
             sed -i 's/\(com.chaquo.python:gradle:\)12.0.1/\114.0.2/g' build.gradle
+            python3 -m venv venv
+            source venv/bin/activate
             sed -i 's|buildPython("D:/Programs/Python/Python38/python.exe")|buildPython("'"$(pwd)/venv/bin/python"'")|g' pyramid/build.gradle
             sed -i '/pip {/a \        install "six"' pyramid/build.gradle
           fi
@@ -150,17 +152,13 @@ jobs:
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
         run: |
-          lastCommit=$(grep "${{ matrix.userName }}\/${{ matrix.repoName }}" ${{ github.workspace }}/README.md | grep -o '[a-z0-9]\{40\}' || echo "")
+          lastCommit=$(grep "${{ matrix.userName }}\/${{ matrix.repoName }}\/${{ matrix.branchName }}" ${{ github.workspace }}/README.md |grep -o '[a-z0-9]\{40\}')
           export LESSCHARSET=utf-8
           echo -e "Credit: [${{ matrix.userName }}](${{ env.upStream }})\nCommit: ${{ env.commit }}\nChangelog:" > apk/${{ matrix.userName }}-Release.log
-
-          # 检查lastCommit是否为空或与当前提交相同
-          if [ -z "$lastCommit" ] || [ "${{ env.commit }}" == "${lastCommit}" ]; then
-          # 如果是第一次构建或相同提交，只显示当前提交的日志
-          git log --pretty=format:%B ${{ env.commitS }} -1 |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
+          if [ "${{ env.commit }}" == "${lastCommit}" ]; then
+            git log --pretty=format:%B ${{ env.commitS }} -1 |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
           else
-          # 显示从上次提交到当前提交的所有变更
-          git log --pretty=format:%B ${{ env.commitS }}...${lastCommit:0:7} |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
+            git log --pretty=format:%B ${{ env.commitS }}...${lastCommit:0:7} |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
           fi
 
       - name: Upload App To Artifact
@@ -170,6 +168,47 @@ jobs:
           name: ${{ matrix.userName }}-${{ matrix.repoName }}-${{ matrix.branchName }}
           path: |
             TVBoxOSC/apk/*
+
+      - name: Whether Or Not to Publish
+        if: ${{ inputs.donotpublish && env.commit }}
+        run: |
+          echo "commit=" >> $GITHUB_ENV
+
+      - name: Release and Upload Assets
+        uses: ncipollo/release-action@main
+        if: ${{ env.commit }}
+        with:
+          name: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}_${{ env.tag }}
+          tag: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}_${{ env.tag }}
+          bodyFile: TVBoxOSC/apk/${{ matrix.userName }}-Release.log
+          allowUpdates: true
+          removeArtifacts: true
+          artifacts: |
+            TVBoxOSC/apk/*.apk
+            TVBoxOSC/source-${{ env.commitS }}.*
+
+      - uses: dev-drprasad/delete-older-releases@master
+        with:
+          keep_latest: 5
+          delete_tags: true
+          delete_tag_pattern: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}.*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to master
+        if: ${{ env.commit }}
+        run: |
+          rm -rf TVBoxOSC
+          sed -i '/url =/d' ./.git/config
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url --add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
+          git pull --rebase
+          sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}\/${{ matrix.branchName }}/s#Updated: [a-zA-Z0-9]*#Updated: ${{ env.commit }}#" README.md
+          sed -i "s/update at .*/update at $(date '+%Y-%m-%d %H:%M:%S')/" README.md
+          git add --all
+          git commit -m "${{ env.commit }}"
+          git push -u -f origin master
 
       - name: Whether Or Not to Publish
         if: ${{ inputs.donotpublish && env.commit }}
