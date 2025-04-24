@@ -85,12 +85,8 @@ jobs:
           fi
           if [ -f "pyramid/build.gradle" ]; then
             sed -i 's/\(com.chaquo.python:gradle:\)12.0.1/\114.0.2/g' build.gradle
-            python3 -m venv venv
-            source venv/bin/activate
-            python -m pip install --upgrade pip setuptools wheel
-            pip install six urllib3
-            pip install lxml ujson pyquery requests jsonpath cachetools pycryptodome beautifulsoup4
             sed -i 's|buildPython("D:/Programs/Python/Python38/python.exe")|buildPython("'"$(pwd)/venv/bin/python"'")|g' pyramid/build.gradle
+            sed -i '/pip {/a \        install "six"' pyramid/build.gradle
           fi
 
 
