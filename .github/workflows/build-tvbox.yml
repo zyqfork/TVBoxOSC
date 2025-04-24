@@ -84,13 +84,11 @@ jobs:
             sed -i "/jitpack.io/a\        maven { url 'https://o0halflife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
           fi
           if [ -f "pyramid/build.gradle" ]; then
-            sed -i 's/\(com.chaquo.python:gradle:\)12.0.1/\114.0.2/g' build.gradle
+            sed -i 's/\(com.chaquo.python:gradle:\)12.0.1/\1 14.0.2/g' build.gradle
             python3 -m venv venv
             source venv/bin/activate
             sed -i 's|buildPython("D:/Programs/Python/Python38/python.exe")|buildPython("'"$(pwd)/venv/bin/python"'")|g' pyramid/build.gradle
-            sed -i '/pip {/a \        install "six"' pyramid/build.gradle
           fi
-
 
       - name: Compress Source Code
         if: ${{ env.commit }}
