@@ -84,6 +84,7 @@ jobs:
             sed -i "/jitpack.io/a\        maven { url 'https://o0halflife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
           fi
           if [ -f "pyramid/build.gradle" ]; then
+            sed -i 's/\(com.chaquo.python:gradle:\)12.0.1/\116.0.0/g' build.gradle
             python3 -m venv venv
             source venv/bin/activate
             python -m pip install --upgrade pip setuptools wheel
@@ -91,7 +92,7 @@ jobs:
             pip install lxml ujson pyquery requests jsonpath cachetools pycryptodome beautifulsoup4
             sed -i 's|buildPython("D:/Programs/Python/Python38/python.exe")|buildPython("'"$(pwd)/venv/bin/python"'")|g' pyramid/build.gradle
           fi
-          
+
 
       - name: Compress Source Code
         if: ${{ env.commit }}
@@ -209,8 +210,30 @@ jobs:
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url --add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
           git pull --rebase
-          sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}/s#[a-zA-Z0-9]\{40\}#${{ env.commit }}#" README.md
-          sed -i "s/update at .*/update at $(date '+%Y-%m-%d %H:%M:%S')/" README.md
+          
+          # 获取当前时间
+          current_time=$(date '+%Y-%m-%d %H:%M:%S')
+          
+          # 更新README.md中的提交哈希
+          if grep -q "${{ matrix.userName }}\/${{ matrix.repoName }}.*|.*|" README.md; then
+            # 如果README已经有时间列（格式为 repo | commit | time）
+            sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}/s#\([a-zA-Z0-9]\{40\}\).*|#\1 | ${current_time} |#" README.md
+          elif grep -q "${{ matrix.userName }}\/${{ matrix.repoName }}.*|" README.md; then
+            # 如果README只有repo和commit列，添加时间列
+            sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}/s#\([a-zA-Z0-9]\{40\}\)#\1 | ${current_time}#" README.md
+          
+            # 如果是第一次添加时间列，可能需要添加表头
+            if ! grep -q "最后更新时间" README.md; then
+              # 查找表头行并添加新列名
+              sed -i '/---|---/s/$/| 最后更新时间 |/' README.md
+              sed -i '/仓库地址.*提交.*$/s/$/最后更新时间/' README.md
+            fi
+          else
+            # 如果格式不符合预期，仅更新提交哈希
+            sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}/s#[a-zA-Z0-9]\{40\}#${{ env.commit }}#" README.md
+          fi
+          
+          sed -i "s/update at .*/update at ${current_time}/" README.md
           git add --all
           git commit -m "${{ env.commit }}"
           git push -u -f origin master
@@ -219,8 +242,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - name: Delete workflow runs
-      uses: GitRML/delete-workflow-runs@main
-      with:
-        retain_days: 1
-        keep_minimum_runs: 3
+      - name: Delete workflow runs
+        uses: GitRML/delete-workflow-runs@main
+        with:
+          retain_days: 1
+          keep_minimum_runs: 3
