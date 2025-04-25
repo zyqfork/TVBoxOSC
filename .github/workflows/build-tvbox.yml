@@ -51,6 +51,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Ensure Table Format
+        if: ${{ env.commit }}
+        run: |
+          # 检查是否存在 Build Time 列，如果不存在则添加
+          if ! grep -q "| Build Time |" README.md; then
+            sed -i '/| Repository.*| Branch.*| Last Update/s/|$/| Build Time |/' README.md
+            sed -i '/|--*|--*|--*/s/|$/|--*|/' README.md
+            sed -i '/\[.*\].*|.*|.*[a-z0-9]\{40\}/s/|$/| - |/' README.md
+          fi
+      
+
       - name: Check New Commit
         run: |
           upStream=https://github.com/${{ matrix.userName }}/${{ matrix.repoName }}
@@ -253,16 +265,23 @@ jobs:
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url --add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
           git pull --rebase
-          sed -i "/\[${{ matrix.userName }}\/${{ matrix.repoName }}\].*${{ matrix.branchName }}/s/[a-z0-9]\{40\}/${{ env.commit }}/" README.md
-          sed -i "s/update at .*/update at $(date '+%Y-%m-%d %H:%M:%S')/" README.md
-          git add --all
-          git commit -m "${{ env.commit }}"
-          git push -u -f origin master
           
+          # 获取当前时间
+          current_time=$(date '+%Y-%m-%d %H:%M:%S')
+          
+          # 更新对应仓库的 commit hash 和构建时间
+          sed -i "/\[${{ matrix.userName }}\/${{ matrix.repoName }}\].*${{ matrix.branchName }}/{
+            s/[a-z0-9]\{40\}/${{ env.commit }}/
+            s/|[^|]*$/| $current_time |/
+          }" README.md
+          
+          # 更新底部的更新时间
           sed -i "s/update at .*/update at ${current_time}/" README.md
+          
           git add --all
-          git commit -m "${{ env.commit }}"
+          git commit -m "Update ${{ matrix.userName }}/${{ matrix.repoName }} to ${{ env.commit }} at ${current_time}"
           git push -u -f origin master
+
 
   clean:
     needs: build
