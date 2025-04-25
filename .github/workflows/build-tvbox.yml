@@ -88,8 +88,8 @@ jobs:
             python3 -m venv venv
             source venv/bin/activate
             sed -i 's|buildPython("D:/Programs/Python/Python38/python.exe")|buildPython("'"$(pwd)/venv/bin/python"'")|g' pyramid/build.gradle
-            sed -i '/install "lxml"/i \                install "six"' build.gradle
-
+            sed -i 's/minSdkVersion 19/minSdkVersion 21/g' build.gradle
+           
           fi
 
       - name: Compress Source Code
@@ -148,25 +148,18 @@ jobs:
             find "$dir" -type f -name "*.apk" -exec sh -c 'cp "$1" "apk/${{ matrix.userName }}-${{ matrix.repoName }}-${{ matrix.branchName }}-${1##*/}"' sh {} \;
           done
 
+
       - name: Release Note
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
         run: |
-          # 修改搜索模式，适应README的格式
-          lastCommit=$(grep "\[${matrix.userName}\/${matrix.repoName}\]" ${{ github.workspace }}/README.md | grep "${matrix.branchName}" | grep -o '[a-z0-9]\{40\}' || echo "")
-          echo "lastCommit: ${lastCommit}"
-          
+          lastCommit=$(grep "\[${{ matrix.userName }}\/${{ matrix.repoName }}\]" ${{ github.workspace }}/README.md | grep "${{ matrix.branchName }}" | grep -o '[a-z0-9]\{40\}')
           export LESSCHARSET=utf-8
           echo -e "Credit: [${{ matrix.userName }}](${{ env.upStream }})\nCommit: ${{ env.commit }}\nChangelog:" > apk/${{ matrix.userName }}-Release.log
-          
-          # 添加错误处理
-          if [ -z "${lastCommit}" ]; then
-          echo "未找到上次提交记录，只显示当前提交的日志"
-          git log --pretty=format:%B ${{ env.commitS }} -1 |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
-          elif [ "${{ env.commit }}" == "${lastCommit}" ]; then
-          git log --pretty=format:%B ${{ env.commitS }} -1 |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
+          if [ "${{ env.commit }}" == "${lastCommit}" ]; then
+            git log --pretty=format:%B ${{ env.commitS }} -1 |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
           else
-          git log --pretty=format:%B ${{ env.commitS }}...${lastCommit:0:7} |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
+            git log --pretty=format:%B ${{ env.commitS }}...${lastCommit:0:7} |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
           fi
 
       - name: Upload App To Artifact
@@ -253,28 +246,11 @@ jobs:
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url --add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
           git pull --rebase
-          
-          # 获取当前时间
-          current_time=$(date '+%Y-%m-%d %H:%M:%S')
-          
-          # 更新README.md中的提交哈希
-          if grep -q "${{ matrix.userName }}\/${{ matrix.repoName }}.*|.*|" README.md; then
-            # 如果README已经有时间列（格式为 repo | commit | time）
-            sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}/s#\([a-zA-Z0-9]\{40\}\).*|#\1 | ${current_time} |#" README.md
-          elif grep -q "${{ matrix.userName }}\/${{ matrix.repoName }}.*|" README.md; then
-            # 如果README只有repo和commit列，添加时间列
-            sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}/s#\([a-zA-Z0-9]\{40\}\)#\1 | ${current_time}#" README.md
-          
-            # 如果是第一次添加时间列，可能需要添加表头
-            if ! grep -q "最后更新时间" README.md; then
-              # 查找表头行并添加新列名
-              sed -i '/---|---/s/$/| 最后更新时间 |/' README.md
-              sed -i '/仓库地址.*提交.*$/s/$/最后更新时间/' README.md
-            fi
-          else
-            # 如果格式不符合预期，仅更新提交哈希
-            sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}/s#[a-zA-Z0-9]\{40\}#${{ env.commit }}#" README.md
-          fi
+          sed -i "/\[${{ matrix.userName }}\/${{ matrix.repoName }}\].*${{ matrix.branchName }}/s/[a-z0-9]\{40\}/${{ env.commit }}/" README.md
+          sed -i "s/update at .*/update at $(date '+%Y-%m-%d %H:%M:%S')/" README.md
+          git add --all
+          git commit -m "${{ env.commit }}"
+          git push -u -f origin master
           
           sed -i "s/update at .*/update at ${current_time}/" README.md
           git add --all
