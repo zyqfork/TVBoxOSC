@@ -89,6 +89,7 @@ jobs:
             source venv/bin/activate
             sed -i 's|buildPython("D:/Programs/Python/Python38/python.exe")|buildPython("'"$(pwd)/venv/bin/python"'")|g' pyramid/build.gradle
             sed -i 's/minSdkVersion 19/minSdkVersion 21/g' pyramid/build.gradle
+            sed -i 's/minSdkVersion 19/minSdkVersion 21/g' app/build.gradle
           fi
 
       - name: Compress Source Code
