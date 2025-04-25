@@ -152,14 +152,31 @@ jobs:
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
         run: |
+          # 尝试获取上一次的 commit hash
           lastCommit=$(grep "\[${{ matrix.userName }}\/${{ matrix.repoName }}\]" ${{ github.workspace }}/README.md | grep "${{ matrix.branchName }}" | grep -o '[a-z0-9]\{40\}')
-          export LESSCHARSET=utf-8
-          echo -e "Credit: [${{ matrix.userName }}](${{ env.upStream }})\nCommit: ${{ env.commit }}\nChangelog:" > apk/${{ matrix.userName }}-Release.log
-          if [ "${{ env.commit }}" == "${lastCommit}" ]; then
-            git log --pretty=format:%B ${{ env.commitS }} -1 |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
-          else
-            git log --pretty=format:%B ${{ env.commitS }}...${lastCommit:0:7} |sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' |cat -n |sort -k2,2 -k1,1n |uniq -f1 |sort -k1,1n |cut -f2- >> apk/${{ matrix.userName }}-Release.log
+          
+          # 如果没有找到 commit hash，设置一个默认值以避免错误
+          if [ -z "$lastCommit" ]; then
+            echo "Warning: Could not find last commit hash for ${{ matrix.userName }}/${{ matrix.repoName }}/${{ matrix.branchName }}"
+            lastCommit=${{ env.commit }}
           fi
+          
+          export LESSCHARSET=utf-8
+          # 确保 apk 目录存在
+          mkdir -p apk/
+          echo -e "Credit: [${{ matrix.userName }}](${{ env.upStream }})\nCommit: ${{ env.commit }}\nChangelog:" > apk/${{ matrix.userName }}-Release.log
+          
+          if [ "${{ env.commit }}" == "${lastCommit}" ]; then
+            git log --pretty=format:%B ${{ env.commitS }} -1 | sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' | cat -n | sort -k2,2 -k1,1n | uniq -f1 | sort -k1,1n | cut -f2- >> apk/${{ matrix.userName }}-Release.log
+          else
+            git log --pretty=format:%B ${{ env.commitS }}...${lastCommit:0:7} | sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' | cat -n | sort -k2,2 -k1,1n | uniq -f1 | sort -k1,1n | cut -f2- >> apk/${{ matrix.userName }}-Release.log
+          fi
+          
+          # 确保日志文件存在并且有内容
+          if [ ! -s "apk/${{ matrix.userName }}-Release.log" ]; then
+            echo "No changes found" >> apk/${{ matrix.userName }}-Release.log
+          fi
+
 
       - name: Upload App To Artifact
         uses: actions/upload-artifact@v4
@@ -195,20 +212,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push to master
-        if: ${{ env.commit }}
-        run: |
-          rm -rf TVBoxOSC
-          sed -i '/url =/d' ./.git/config
-          git config --local user.name "github-actions[bot]"
-          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git remote set-url --add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
-          git pull --rebase
-          sed -i "/${{ matrix.userName }}\/${{ matrix.repoName }}\/${{ matrix.branchName }}/s#Updated: [a-zA-Z0-9]*#Updated: ${{ env.commit }}#" README.md
-          sed -i "s/update at .*/update at $(date '+%Y-%m-%d %H:%M:%S')/" README.md
-          git add --all
-          git commit -m "${{ env.commit }}"
-          git push -u -f origin master
 
       - name: Whether Or Not to Publish
         if: ${{ inputs.donotpublish && env.commit }}
