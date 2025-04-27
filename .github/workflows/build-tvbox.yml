@@ -188,7 +188,7 @@ jobs:
           else
             git log --pretty=format:%B ${{ env.commitS }}...${lastCommit:0:7} | sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' | cat -n | sort -k2,2 -k1,1n | uniq -f1 | sort -k1,1n | cut -f2- >> apk/${{ matrix.userName }}-Release.log
           fi
-          echo -e '\n```' >> apk/${{ matrix.userName }}-Release.log
+          echo -e '```' >> apk/${{ matrix.userName }}-Release.log
           
           # 确保日志文件存在并且有内容
           if [ ! -s "apk/${{ matrix.userName }}-Release.log" ]; then
@@ -273,7 +273,7 @@ jobs:
           # 更新对应仓库的 commit hash 和构建时间
           sed -i "/\[${{ matrix.userName }}\/${{ matrix.repoName }}\].*${{ matrix.branchName }}/{
             s/[a-z0-9]\{40\}/${{ env.commit }}/
-            s/|[^|]*$/| $current_time |/
+            s/| [^|]* |$/| $current_time |/
           }" README.md
           
           # 更新底部的更新时间
