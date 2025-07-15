@@ -11,9 +11,9 @@ This repo relies on the following third-party projects:
 |------------------------------------------|----------------|------------------------------------------|------------|
 | [q215613905/TVBoxOS](https://github.com/q215613905/TVBoxOS) | main           | 49e631437836a97cdf158544267de59855c11b6a  | 2025-05-13 20:15:13 |
 | [takagen99/Box](https://github.com/takagen99/Box)         | main           | 9fcd86189c7818ca26284aa69c4ce29c7a30b87f | 2025-07-06 20:28:23 |
-| [chengxue2020/takagen99](https://github.com/chengxue2020/takagen99) | main           | 57e8a5b8a3fabccf6f3606658bb9145e9b569e4c  | 2025-04-25 10:19:26 |
+| [chengxue2020/takagen99](https://github.com/chengxue2020/takagen99) | main           | 29bf3681b56830cd36caa8b2d9ff0b59350e5869  | 2025-07-15 20:23:03 |
 | [FongMi/TV](https://github.com/FongMi/TV)               | release        | a03ac275211c5afa5764e9cd7724de5405f4d029  | 2025-06-14 20:19:24 |
 | [Klosw/Box](https://github.com/Klosw/Box)               | dev-4.4        | 346cc27c9dc066bcdba9bd541cf89c6d69b6cf1b | - |
 | [mlabalabala/box](https://github.com/mlabalabala/box)    | main           | 8beeb7fed9201350af294efcbeb8cee6f8c025bb | 2025-04-25 10:11:27 |
 
-#### update at 2025-07-06 20:28:23
+#### update at 2025-07-15 20:23:03
