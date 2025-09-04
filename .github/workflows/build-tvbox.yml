@@ -103,8 +103,10 @@ jobs:
             sed -i 's/minSdkVersion 19/minSdkVersion 21/g' pyramid/build.gradle
             sed -i 's/minSdkVersion 19/minSdkVersion 21/g' app/build.gradle
           fi
+          
           if [ -f "app/build.gradle" ]; then
-            sed -i '/x86 {/,/}/d' app/build.gradle
+            sed -i '/x86 {/,/^[[:space:]]*}/d' app/build.gradle
+            sed -i '/^[[:space:]]*$/N;/^\s*\n\s*$/d' app/build.gradle
           fi
 
       - name: Compress Source Code
