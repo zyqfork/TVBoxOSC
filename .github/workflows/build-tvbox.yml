@@ -110,6 +110,9 @@ jobs:
             # Change applicationId from com.fongmi.android.tv to com.fongmi.tv to allow coexistence with original app
             sed -i 's/applicationId "com\.fongmi\.android\.tv"/applicationId "com.fongmi.tv"/' app/build.gradle
           fi
+          if [ -f "app/src/main/AndroidManifest.xml" ]; then
+            sed -i 's/android:authorities="com\.fongmi\.quickjs\.provider"/android:authorities="${applicationId}.quickjs.provider"/' app/src/main/AndroidManifest.xml
+          fi
 
       - name: Compress Source Code
         if: ${{ env.commit }}
