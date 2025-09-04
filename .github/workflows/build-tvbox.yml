@@ -108,7 +108,7 @@ jobs:
             sed -i '/x86 {/,/^[[:space:]]*}/d' app/build.gradle
             sed -i '/^[[:space:]]*$/N;/^\s*\n\s*$/d' app/build.gradle
             // Change applicationId from com.fongmi.android.tv to com.fongmi.tv to allow coexistence with original app
-            sed -i 's/applicationId "com\.fongmi\.android\.tv"/applicationId "com.fongmi.tv"/' build.gradle
+            sed -i 's/applicationId "com\.fongmi\.android\.tv"/applicationId "com.fongmi.tv"/' app/build.gradle
           fi
 
       - name: Compress Source Code
