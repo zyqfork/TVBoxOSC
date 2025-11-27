@@ -14,6 +14,6 @@ This repo relies on the following third-party projects:
 | [chengxue2020/takagen99](https://github.com/chengxue2020/takagen99) | main           | 5386d44175f99c7f60ff44ff9cec5a215e845a86  | 2025-07-17 20:28:18 |
 | [FongMi/TV](https://github.com/FongMi/TV)               | release        | 1d492d28a70f0ea91a3b9727ac0f6efb186aa8b7  | 2025-11-25 20:23:39 |
 | [Klosw/Box](https://github.com/Klosw/Box)               | dev-4.4        | 346cc27c9dc066bcdba9bd541cf89c6d69b6cf1b | 2025-05-13 20:15:13 |
-| [mlabalabala/box](https://github.com/mlabalabala/box)    | main           | 7f5bc707c0ac5d7e5b849a578cedbce68816161b | 2025-11-20 20:15:26 |
+| [mlabalabala/box](https://github.com/mlabalabala/box)    | main           | 5e48c80c4e382611474428e6744a50da1a32f319 | 2025-11-27 20:12:41 |
 
-#### update at 2025-11-25 20:23:39
+#### update at 2025-11-27 20:12:41
