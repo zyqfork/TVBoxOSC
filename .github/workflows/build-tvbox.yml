@@ -55,13 +55,12 @@ jobs:
       - name: Ensure Table Format
         if: ${{ env.commit }}
         run: |
-          # 检查是否存在 Build Time 列，如果不存在则添加
+          # 检查是否存在 Build Time 列,如果不存在则添加
           if ! grep -q "| Build Time |" README.md; then
             sed -i '/| Repository.*| Branch.*| Last Update/s/|$/| Build Time |/' README.md
             sed -i '/|--*|--*|--*/s/|$/|--*|/' README.md
             sed -i '/\[.*\].*|.*|.*[a-z0-9]\{40\}/s/|$/| - |/' README.md
           fi
-      
 
       - name: Check New Commit
         run: |
@@ -89,27 +88,56 @@ jobs:
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
         run: |
-          echo 'crosswalk源，防挂'
+          echo 'crosswalk源,防挂'
           if grep -q 'crosswalk' build.gradle; then
             sed -i "/crosswalk/a\        maven { url 'https://o0halflife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
           else
             sed -i "/jitpack.io/a\        maven { url 'https://o0halflife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
           fi
+          
+          # 处理 Chaquopy Python 配置
           if [ -f "pyramid/build.gradle" ]; then
-            sed -i 's/\(com.chaquo.python:gradle:\)12.0.1/\115.0.1/g' build.gradle
-            python3 -m venv venv
+            echo "检测到 pyramid 模块,开始配置 Python 环境"
+            
+            # 安装 Python 3.10
+            sudo apt-get update
+            sudo apt-get install -y python3.10 python3.10-venv python3.10-dev
+            
+            # 验证 Python 3.10 安装
+            python3.10 --version
+            
+            # 创建 Python 3.10 虚拟环境
+            python3.10 -m venv venv
             source venv/bin/activate
-            sed -i 's|buildPython("D:/Programs/Python/Python38/python.exe")|buildPython("'"$(pwd)/venv/bin/python"'")|g' pyramid/build.gradle
+            
+            # 升级 pip
+            pip install --upgrade pip
+            
+            # 更新 Chaquopy 版本
+            sed -i 's/\(com.chaquo.python:gradle:\)12.0.1/\115.0.1/g' build.gradle
+            
+            # 配置 buildPython 路径
+            PYTHON_PATH="$(pwd)/venv/bin/python3.10"
+            echo "Python 路径: $PYTHON_PATH"
+            sed -i "s|buildPython.*|buildPython(\"$PYTHON_PATH\")|g" pyramid/build.gradle
+            
+            # 更新 minSdkVersion
             sed -i 's/minSdkVersion 19/minSdkVersion 21/g' pyramid/build.gradle
             sed -i 's/minSdkVersion 19/minSdkVersion 21/g' app/build.gradle
+            
+            echo "Python 环境配置完成"
           fi
           
+          # 移除 x86 架构
           if [ -f "app/build.gradle" ]; then
             sed -i '/x86 {/,/^[[:space:]]*}/d' app/build.gradle
             sed -i '/^[[:space:]]*$/N;/^\s*\n\s*$/d' app/build.gradle
-            # Change applicationId from com.fongmi.android.tv to com.fongmi.tv to allow coexistence with original app
+            
+            # 修改 applicationId 以允许与原版共存
             sed -i 's/applicationId "com\.fongmi\.android\.tv"/applicationId "com.fongmi.tv"/' app/build.gradle
           fi
+          
+          # 修改 AndroidManifest.xml
           if [ -f "app/src/main/AndroidManifest.xml" ]; then
             sed -i 's/android:authorities="com\.fongmi\.quickjs\.provider"/android:authorities="${applicationId}.quickjs.provider"/' app/src/main/AndroidManifest.xml
           fi
@@ -173,7 +201,6 @@ jobs:
             find "$dir" -type f -name "*.apk" -exec sh -c 'cp "$1" "apk/${{ matrix.userName }}-${{ matrix.repoName }}-${{ matrix.branchName }}-${1##*/}"' sh {} \;
           done
 
-
       - name: Release Note
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
@@ -181,7 +208,7 @@ jobs:
           # 尝试获取上一次的 commit hash
           lastCommit=$(grep "\[${{ matrix.userName }}\/${{ matrix.repoName }}\]" ${{ github.workspace }}/README.md | grep "${{ matrix.branchName }}" | grep -o '[a-z0-9]\{40\}')
           
-          # 如果没有找到 commit hash，设置一个默认值以避免错误
+          # 如果没有找到 commit hash,设置一个默认值以避免错误
           if [ -z "$lastCommit" ]; then
             echo "Warning: Could not find last commit hash for ${{ matrix.userName }}/${{ matrix.repoName }}/${{ matrix.branchName }}"
             lastCommit=${{ env.commit }}
@@ -204,7 +231,6 @@ jobs:
             echo "No changes found" >> apk/${{ matrix.userName }}-Release.log
           fi
 
-
       - name: Upload App To Artifact
         uses: actions/upload-artifact@v4
         if: ${{ env.commit }}
@@ -212,33 +238,6 @@ jobs:
           name: ${{ matrix.userName }}-${{ matrix.repoName }}-${{ matrix.branchName }}
           path: |
             TVBoxOSC/apk/*
-
-      - name: Whether Or Not to Publish
-        if: ${{ inputs.donotpublish && env.commit }}
-        run: |
-          echo "commit=" >> $GITHUB_ENV
-
-      - name: Release and Upload Assets
-        uses: ncipollo/release-action@main
-        if: ${{ env.commit }}
-        with:
-          name: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}_${{ env.tag }}
-          tag: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}_${{ env.tag }}
-          bodyFile: TVBoxOSC/apk/${{ matrix.userName }}-Release.log
-          allowUpdates: true
-          removeArtifacts: true
-          artifacts: |
-            TVBoxOSC/apk/*.apk
-            TVBoxOSC/source-${{ env.commitS }}.*
-
-      - uses: dev-drprasad/delete-older-releases@master
-        with:
-          keep_latest: 5
-          delete_tags: true
-          delete_tag_pattern: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}.*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 
       - name: Whether Or Not to Publish
         if: ${{ inputs.donotpublish && env.commit }}
@@ -291,7 +290,6 @@ jobs:
           git add --all
           git commit -m "Update ${{ matrix.userName }}/${{ matrix.repoName }} to ${{ env.commit }} at ${current_time}"
           git push -u -f origin master
-
 
   clean:
     needs: build
