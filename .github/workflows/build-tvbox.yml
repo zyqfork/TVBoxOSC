@@ -141,6 +141,18 @@ jobs:
           if [ -f "app/src/main/AndroidManifest.xml" ]; then
             sed -i 's/android:authorities="com\.fongmi\.quickjs\.provider"/android:authorities="${applicationId}.quickjs.provider"/' app/src/main/AndroidManifest.xml
           fi
+          
+          # 修改更新检测 URL 为当前仓库（仅针对 FongMi/TV）
+          if [ "${{ matrix.userName }}" == "FongMi" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
+            echo "修改更新检测 URL 为当前仓库: ${{ github.repository }}"
+            REPO_OWNER=$(echo "${{ github.repository }}" | cut -d'/' -f1)
+            REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+            UPDATE_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/gh-pages/apk"
+            if [ -f "app/src/main/java/com/fongmi/android/tv/utils/Github.java" ]; then
+              sed -i "s|public static final String URL = \".*\";|public static final String URL = \"${UPDATE_URL}\";|" app/src/main/java/com/fongmi/android/tv/utils/Github.java
+              echo "已更新 Github.java 中的 URL 为: ${UPDATE_URL}"
+            fi
+          fi
 
       - name: Compress Source Code
         if: ${{ env.commit }}
@@ -200,6 +212,32 @@ jobs:
           find ~ -type d -iname "release" -print0 | while IFS= read -r -d '' dir; do
             find "$dir" -type f -name "*.apk" -exec sh -c 'cp "$1" "apk/${{ matrix.userName }}-${{ matrix.repoName }}-${{ matrix.branchName }}-${1##*/}"' sh {} \;
           done
+          
+          # 为 FongMi/TV 生成版本检测 JSON 文件
+          if [ "${{ matrix.userName }}" == "FongMi" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
+            echo "生成版本检测 JSON 文件..."
+            # 读取版本信息
+            VERSION_CODE=$(grep "versionCode" app/build.gradle | head -1 | sed 's/.*versionCode //' | sed 's/[^0-9]//g')
+            VERSION_NAME=$(grep "versionName" app/build.gradle | head -1 | sed 's/.*versionName "//' | sed 's/".*//')
+            
+            # 为每个 mode 生成一个 JSON 文件（leanback 和 mobile）
+            for mode in leanback mobile; do
+              # 检查是否存在该 mode 的 APK 文件
+              if ls apk/FongMi-TV-release-${mode}-*.apk 1> /dev/null 2>&1; then
+                json_file="apk/${mode}.json"
+                
+                # 生成 JSON 文件
+                cat > "$json_file" <<EOF
+{
+  "name": "${VERSION_NAME}",
+  "desc": "版本 ${VERSION_NAME}\n构建时间: ${{ env.tag }}\nCommit: ${{ env.commitS }}",
+  "code": ${VERSION_CODE}
+}
+EOF
+                echo "已生成: $json_file (version: $VERSION_NAME, code: $VERSION_CODE)"
+              fi
+            done
+          fi
 
       - name: Release Note
         if: ${{ env.commit }}
@@ -264,6 +302,56 @@ jobs:
           delete_tag_pattern: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}.*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy Update Files to gh-pages
+        if: ${{ env.commit && matrix.userName == 'FongMi' && matrix.repoName == 'TV' }}
+        run: |
+          echo "部署更新文件到 gh-pages 分支..."
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # 克隆仓库并切换到 gh-pages 分支
+          git clone --depth=1 --branch=gh-pages "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages-repo 2>/dev/null || git clone --depth=1 "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages-repo
+          cd gh-pages-repo
+          
+          # 如果 gh-pages 分支不存在，创建它
+          if ! git rev-parse --verify gh-pages >/dev/null 2>&1; then
+            git checkout --orphan gh-pages
+            git rm -rf . 2>/dev/null || true
+          else
+            git checkout gh-pages 2>/dev/null || git checkout -b gh-pages
+          fi
+          
+          # 创建 apk 目录
+          mkdir -p apk
+          
+          # 复制 JSON 文件和 APK 文件
+          cp -f ${{ github.workspace }}/TVBoxOSC/apk/*.json apk/ 2>/dev/null || true
+          cp -f ${{ github.workspace }}/TVBoxOSC/apk/FongMi-TV-release-*.apk apk/ 2>/dev/null || true
+          
+          # 重命名 APK 文件以匹配更新检测的命名格式
+          cd apk
+          for file in FongMi-TV-release-*.apk; do
+            if [ -f "$file" ]; then
+              # 提取 flavor 信息（例如：FongMi-TV-release-leanback-arm64_v8a.apk -> leanback-arm64_v8a.apk）
+              newname=$(echo "$file" | sed 's/FongMi-TV-release-//')
+              if [ "$file" != "$newname" ]; then
+                mv "$file" "$newname"
+                echo "重命名: $file -> $newname"
+              fi
+            fi
+          done
+          cd ..
+          
+          # 提交更改
+          git add -A
+          if git diff --staged --quiet; then
+            echo "没有更改需要提交"
+          else
+            git commit -m "Update FongMi/TV version files - ${{ env.tag }}"
+            git push origin gh-pages
+            echo "已更新 gh-pages 分支"
+          fi
 
       - name: Push to master
         if: ${{ env.commit }}
