@@ -227,13 +227,8 @@ jobs:
                 json_file="apk/${mode}.json"
                 
                 # 生成 JSON 文件
-                cat > "$json_file" <<EOF
-{
-  "name": "${VERSION_NAME}",
-  "desc": "版本 ${VERSION_NAME}\n构建时间: ${{ env.tag }}\nCommit: ${{ env.commitS }}",
-  "code": ${VERSION_CODE}
-}
-EOF
+                printf '{\n  "name": "%s",\n  "desc": "版本 %s\\n构建时间: %s\\nCommit: %s",\n  "code": %s\n}' \
+                  "${VERSION_NAME}" "${VERSION_NAME}" "${{ env.tag }}" "${{ env.commitS }}" "${VERSION_CODE}" > "$json_file"
                 echo "已生成: $json_file (version: $VERSION_NAME, code: $VERSION_CODE)"
               fi
             done
