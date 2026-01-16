@@ -12,6 +12,6 @@ This repo relies on the following third-party projects:
 | [q215613905/TVBoxOS](https://github.com/q215613905/TVBoxOS) | main           | 704cd2658fbcaf38551228cb90bd9f766a0c9e72  | 2026-01-16 08:04:43 |
 | [zyqfork/TVBox](https://github.com/zyqfork/TVBox)         | main           | 13d4bfdd250e15fbf578a7eaa48665e6032e8ed8 | 2026-01-16 02:21:53 |
 | [zyqfork/TVBox](https://github.com/zyqfork/TVBox)         | 4.4            | 13d4bfdd250e15fbf578a7eaa48665e6032e8ed8 | 2026-01-16 02:21:53 |
-| [FongMi/TV](https://github.com/FongMi/TV)               | release        | 171a41bf1c4a5b0c2cf0e439b5c5ce716b0229aa  | 2026-01-16 02:08:21 |
+| [FongMi/TV](https://github.com/FongMi/TV)               | release        | 171a41bf1c4a5b0c2cf0e439b5c5ce716b0229aa  | 2026-01-16 08:12:10 |
 
-#### update at 2026-01-16 08:04:43
+#### update at 2026-01-16 08:12:10
