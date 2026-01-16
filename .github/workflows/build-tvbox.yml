@@ -190,17 +190,34 @@ jobs:
           # 修复 Klosw/Box 的依赖问题
           if [ "${{ matrix.userName }}" == "Klosw" ] && [ "${{ matrix.repoName }}" == "Box" ]; then
             echo "修复 Klosw/Box 的依赖问题..."
+            
+            # 在 build.gradle 中添加额外的 Maven 仓库
+            if [ -f "build.gradle" ]; then
+              # 添加 jcenter（虽然已废弃，但可能还有这些依赖）
+              if ! grep -q "jcenter()" build.gradle; then
+                sed -i "/mavenCentral()/a\        jcenter()" build.gradle
+              fi
+            fi
+            
             if [ -f "app/build.gradle" ]; then
-              # 将无法找到的依赖替换为 JitPack 格式
+              # 尝试使用 JitPack 的正确格式
+              # 注意：JitPack 格式为 com.github.{username}:{repo}:{tag}
+              # 如果 tag 是版本号，可能需要加 v 前缀
+              
               # com.kingja.loadsir:loadsir:1.3.8 -> com.github.kingja:LoadSir:1.3.8
               sed -i 's/com\.kingja\.loadsir:loadsir:1\.3\.8/com.github.kingja:LoadSir:1.3.8/g' app/build.gradle
-              # me.jessyan:autosize:1.2.1 -> com.github.jessyan:AndroidAutoSize:1.2.1
-              sed -i 's/me\.jessyan:autosize:1\.2\.1/com.github.jessyan:AndroidAutoSize:1.2.1/g' app/build.gradle
-              # com.lzy.net:okgo:3.0.4 -> com.github.lzyzsd:OkGo:3.0.4
-              sed -i 's/com\.lzy\.net:okgo:3\.0\.4/com.github.lzyzsd:OkGo:3.0.4/g' app/build.gradle
-              # com.owen:tv-recyclerview:3.0.0 -> com.github.owen:TVRecyclerView:3.0.0
-              sed -i 's/com\.owen:tv-recyclerview:3\.0\.0/com.github.owen:TVRecyclerView:3.0.0/g' app/build.gradle
-              echo "已修复 Klosw/Box 的依赖配置"
+              
+              # me.jessyan:autosize:1.2.1 -> com.github.JessYanCoding:AndroidAutoSize:1.2.1
+              sed -i 's/me\.jessyan:autosize:1\.2\.1/com.github.JessYanCoding:AndroidAutoSize:1.2.1/g' app/build.gradle
+              
+              # com.lzy.net:okgo:3.0.4 -> com.github.lzyzsd:OkGo:v3.0.4
+              sed -i 's/com\.lzy\.net:okgo:3\.0\.4/com.github.lzyzsd:OkGo:v3.0.4/g' app/build.gradle
+              
+              # com.owen:tv-recyclerview:3.0.0 -> com.github.owen:TVRecyclerView:v3.0.0
+              sed -i 's/com\.owen:tv-recyclerview:3\.0\.0/com.github.owen:TVRecyclerView:v3.0.0/g' app/build.gradle
+              
+              echo "已修复 Klosw/Box 的依赖配置（使用 JitPack 格式）"
+              echo "如果仍然失败，这些依赖可能需要从其他源获取或使用本地文件"
             fi
           fi
 
