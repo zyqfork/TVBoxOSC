@@ -128,6 +128,32 @@ jobs:
             sed -n '/python {/,/^[[:space:]]*}/p' chaquo/build.gradle
           fi
           
+          # 处理 Pyramid Python 配置（用于 takagen99/Box 和 chengxue2020/takagen99）
+          if [ -f "pyramid/build.gradle" ]; then
+            echo "检测到 pyramid 模块,开始配置 Python 环境"
+          
+            # 验证 Python 3.10
+            python3.10 --version
+            PYTHON_PATH=$(which python3.10)
+            echo "Python 路径: $PYTHON_PATH"
+          
+            # 替换硬编码的 Windows Python 路径为 GitHub Actions 中的 Python 路径
+            # 查找 buildPython 行并替换
+            if grep -q "buildPython" pyramid/build.gradle; then
+              # 如果已经有 buildPython，替换它
+              sed -i "s|buildPython(\".*\")|buildPython(\"$PYTHON_PATH\")|g" pyramid/build.gradle
+            else
+              # 如果没有 buildPython，在 python { 块中添加
+              sed -i "/python {/a\            buildPython \"$PYTHON_PATH\"" pyramid/build.gradle
+            fi
+          
+            echo "Pyramid Python 环境配置完成"
+          
+            # 显示修改后的配置
+            echo "=== pyramid/build.gradle python 配置 ==="
+            sed -n '/python {/,/^[[:space:]]*}/p' pyramid/build.gradle
+          fi
+          
           # 移除 x86 架构
           if [ -f "app/build.gradle" ]; then
             sed -i '/x86 {/,/^[[:space:]]*}/d' app/build.gradle
@@ -152,6 +178,13 @@ jobs:
               sed -i "s|public static final String URL = \".*\";|public static final String URL = \"${UPDATE_URL}\";|" app/src/main/java/com/fongmi/android/tv/utils/Github.java
               echo "已更新 Github.java 中的 URL 为: ${UPDATE_URL}"
             fi
+          fi
+          
+          # 为 takagen99/Box 添加更新检测 URL 配置（如果将来需要添加更新检测功能）
+          # 注意：takagen99/Box 目前没有更新检测代码，这里只是为将来做准备
+          if [ "${{ matrix.userName }}" == "takagen99" ] && [ "${{ matrix.repoName }}" == "Box" ]; then
+            echo "takagen99/Box 目前没有更新检测功能，但已准备好版本检测 JSON 文件"
+            echo "如需添加更新检测功能，可以参考 fongmi/tv 的实现方式"
           fi
 
       - name: Compress Source Code
@@ -233,6 +266,36 @@ jobs:
               fi
             done
           fi
+          
+          # 为 takagen99/Box 生成版本检测 JSON 文件
+          if [ "${{ matrix.userName }}" == "takagen99" ] && [ "${{ matrix.repoName }}" == "Box" ]; then
+            echo "生成 takagen99/Box 版本检测 JSON 文件..."
+            # 读取版本信息
+            VERSION_CODE=$(grep "versionCode" app/build.gradle | head -1 | sed 's/.*versionCode //' | sed 's/[^0-9]//g')
+            VERSION_NAME=$(grep "versionName" app/build.gradle | head -1 | sed 's/.*versionName "//' | sed 's/".*//')
+            
+            # 为每个 flavor 组合生成 JSON 文件
+            # takagen99/Box 的 APK 文件名格式: takagen99-Box-main-TVBox_release-{brand}-{abi}-{mode}.apk
+            for apk_file in apk/takagen99-Box-main-*.apk; do
+              if [ -f "$apk_file" ]; then
+                filename=$(basename "$apk_file")
+                # 提取 flavor 信息（例如：takagen99-Box-main-TVBox_release-generic-arm64-java.apk）
+                # 移除前缀 "takagen99-Box-main-"
+                flavor_part=$(echo "$filename" | sed 's/takagen99-Box-main-//' | sed 's/\.apk$//')
+                # 提取 TVBox_release- 后面的部分
+                if [[ "$flavor_part" =~ ^TVBox_release-(.+)$ ]]; then
+                  flavors="${BASH_REMATCH[1]}"
+                  # 生成 JSON 文件名：使用完整的 flavor 组合作为标识
+                  json_file="apk/${flavors}.json"
+                  
+                  # 生成 JSON 文件
+                  printf '{\n  "name": "%s",\n  "desc": "版本 %s\\n构建时间: %s\\nCommit: %s",\n  "code": %s\n}' \
+                    "${VERSION_NAME}" "${VERSION_NAME}" "${{ env.tag }}" "${{ env.commitS }}" "${VERSION_CODE}" > "$json_file"
+                  echo "已生成: $json_file (version: $VERSION_NAME, code: $VERSION_CODE)"
+                fi
+              fi
+            done
+          fi
 
       - name: Release Note
         if: ${{ env.commit }}
@@ -299,7 +362,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy Update Files to gh-pages
-        if: ${{ env.commit && matrix.userName == 'FongMi' && matrix.repoName == 'TV' }}
+        if: ${{ env.commit && ((matrix.userName == 'FongMi' && matrix.repoName == 'TV') || (matrix.userName == 'takagen99' && matrix.repoName == 'Box')) }}
         run: |
           echo "部署更新文件到 gh-pages 分支..."
           git config --global user.name "github-actions[bot]"
@@ -322,21 +385,42 @@ jobs:
           
           # 复制 JSON 文件和 APK 文件
           cp -f ${{ github.workspace }}/TVBoxOSC/apk/*.json apk/ 2>/dev/null || true
-          cp -f ${{ github.workspace }}/TVBoxOSC/apk/FongMi-TV-release-*.apk apk/ 2>/dev/null || true
           
-          # 重命名 APK 文件以匹配更新检测的命名格式
-          cd apk
-          for file in FongMi-TV-release-*.apk; do
-            if [ -f "$file" ]; then
-              # 提取 flavor 信息（例如：FongMi-TV-release-leanback-arm64_v8a.apk -> leanback-arm64_v8a.apk）
-              newname=$(echo "$file" | sed 's/FongMi-TV-release-//')
-              if [ "$file" != "$newname" ]; then
-                mv "$file" "$newname"
-                echo "重命名: $file -> $newname"
+          # 处理 FongMi/TV 的文件
+          if [ "${{ matrix.userName }}" == "FongMi" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
+            cp -f ${{ github.workspace }}/TVBoxOSC/apk/FongMi-TV-release-*.apk apk/ 2>/dev/null || true
+            # 重命名 APK 文件以匹配更新检测的命名格式
+            cd apk
+            for file in FongMi-TV-release-*.apk; do
+              if [ -f "$file" ]; then
+                # 提取 flavor 信息（例如：FongMi-TV-release-leanback-arm64_v8a.apk -> leanback-arm64_v8a.apk）
+                newname=$(echo "$file" | sed 's/FongMi-TV-release-//')
+                if [ "$file" != "$newname" ]; then
+                  mv "$file" "$newname"
+                  echo "重命名: $file -> $newname"
+                fi
               fi
-            fi
-          done
-          cd ..
+            done
+            cd ..
+          fi
+          
+          # 处理 takagen99/Box 的文件
+          if [ "${{ matrix.userName }}" == "takagen99" ] && [ "${{ matrix.repoName }}" == "Box" ]; then
+            cp -f ${{ github.workspace }}/TVBoxOSC/apk/takagen99-Box-main-*.apk apk/ 2>/dev/null || true
+            # 重命名 APK 文件以匹配更新检测的命名格式
+            cd apk
+            for file in takagen99-Box-main-*.apk; do
+              if [ -f "$file" ]; then
+                # 提取文件名（例如：takagen99-Box-main-TVBox_release-generic-arm64-java.apk -> TVBox_release-generic-arm64-java.apk）
+                newname=$(echo "$file" | sed 's/takagen99-Box-main-//')
+                if [ "$file" != "$newname" ]; then
+                  mv "$file" "$newname"
+                  echo "重命名: $file -> $newname"
+                fi
+              fi
+            done
+            cd ..
+          fi
           
           # 提交更改
           git add -A
