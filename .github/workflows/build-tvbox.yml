@@ -224,7 +224,7 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           if [ "${{ matrix.userName }}" == "FongMi" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
             {
-              echo "storeFile=./app/TVBoxOSC.jks"
+              echo "storeFile=./TVBoxOSC.jks"
               echo "keyAlias=TVBoxOSC"
               echo "storePassword=TVBoxOSC"
             } >> local.properties
