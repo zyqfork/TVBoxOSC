@@ -235,9 +235,16 @@ jobs:
         working-directory: TVBoxOSC
         run: |
           chmod +x gradlew
-          echo "org.gradle.daemon=true" >> gradle.properties
-          echo "org.gradle.parallel=true" >> gradle.properties
-          echo "org.gradle.caching=true" >> gradle.properties
+          # 某些上游仓库 gradle.properties 末尾没有换行，直接 >> 可能与最后一行粘连
+          printf '\n' >> gradle.properties
+          for prop in "org.gradle.daemon=true" "org.gradle.parallel=true" "org.gradle.caching=true"; do
+            key="${prop%%=*}"
+            if grep -q "^${key}=" gradle.properties; then
+              sed -i "s|^${key}=.*|${prop}|" gradle.properties
+            else
+              echo "${prop}" >> gradle.properties
+            fi
+          done
           ./gradlew assemblerelease --build-cache --parallel --daemon --warning-mode all
 
       - name: Prepare App
