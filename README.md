@@ -9,9 +9,9 @@
 This repo relies on the following third-party projects:
 | Repository                               | Branch         | Last Update                              | Build Time |
 |------------------------------------------|----------------|------------------------------------------|------------|
-| [q215613905/TVBoxOS](https://github.com/q215613905/TVBoxOS) | main           | 222ca3fb375294c7f7adaf006302c983e37340da  | 2026-06-15 22:26:44 |
+| [q215613905/TVBoxOS](https://github.com/q215613905/TVBoxOS) | main           | bf9d8fbc4acb2d15f8450cfabd48621686dee906  | 2026-06-16 22:19:09 |
 | [takagen99/Box](https://github.com/zyqfork/TVBox)         | main           | 258a5fef61578869ae905ca230bdde9e99fc19a8 | 2026-02-28 09:54:51 |
 | [zyqfork/TVBox](https://github.com/zyqfork/TVBox)         | 4.4            | bd49f8bb9ee1ae79205b9d9558b068f9ea061d56 | 2026-01-16 09:46:08 |
 | [FongMi/TV](https://github.com/FongMi/TV)               | release        | c057cb1426a1d9e992440556ab441ecba902eb2a  | 2026-04-21 03:22:14 |
 
-#### update at 2026-06-15 22:26:44
+#### update at 2026-06-16 22:19:09
