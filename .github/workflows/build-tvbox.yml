@@ -60,8 +60,7 @@ jobs:
           echo "upStream=$upStream" >> $GITHUB_ENV
           commit=$(curl -sL $upStream/commits/${{ matrix.branchName }} |grep -o "/${{ matrix.userName }}/${{ matrix.repoName }}/commit/[a-z0-9]\+" |head -1 | cut -d\/ -f5)
           if [[ -z "${commit}" ]]; then
-            commit=$(curl -s "https://api.github.com/repos/${{ matrix.userName }}/${{ matrix.repoName }}/commits/${{ matrix.branchName }}?per_page=1" | jq -r '.sha' )
-            [[ "${commit}" == "null" ]] && commit=""
+            commit=$(curl -s "https://api.github.com/repos/${{ matrix.userName }}/${{ matrix.repoName }}/commits/${{ matrix.branchName }}?per_page=1" | jq -r '.[0].sha // empty' )
           fi
           if [[ -n "${commit}" ]] && ( ! grep -q "$commit" README.md || [ "${{ inputs.rebuild }}" == "true" ] ); then
             echo "commit=$commit" >> $GITHUB_ENV
