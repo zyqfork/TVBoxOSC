@@ -35,7 +35,7 @@ jobs:
             jdkVersion: 17
           - userName: FongMi
             repoName: TV
-            branchName: release
+            branchName: fongmi
             jdkVersion: 17
 
     steps:
@@ -274,7 +274,7 @@ jobs:
             # 为每个 mode 生成一个 JSON 文件（leanback 和 mobile）
             for mode in leanback mobile; do
               # 检查是否存在该 mode 的 APK 文件
-              if ls apk/FongMi-TV-release-${mode}-*.apk 1> /dev/null 2>&1; then
+              if ls apk/FongMi-TV-${{ matrix.branchName }}-${mode}-*.apk 1> /dev/null 2>&1; then
                 json_file="apk/${mode}.json"
                 
                 # 生成 JSON 文件
@@ -407,13 +407,13 @@ jobs:
             # 复制 JSON 文件
             cp -f ${{ github.workspace }}/TVBoxOSC/apk/*.json "$APK_DIR/" 2>/dev/null || true
             # 复制 APK 文件
-            cp -f ${{ github.workspace }}/TVBoxOSC/apk/FongMi-TV-release-*.apk "$APK_DIR/" 2>/dev/null || true
+            cp -f ${{ github.workspace }}/TVBoxOSC/apk/FongMi-TV-${{ matrix.branchName }}-*.apk "$APK_DIR/" 2>/dev/null || true
             # 重命名 APK 文件以匹配更新检测的命名格式
             cd "$APK_DIR"
-            for file in FongMi-TV-release-*.apk; do
+            for file in FongMi-TV-${{ matrix.branchName }}-*.apk; do
               if [ -f "$file" ]; then
-                # 提取 flavor 信息（例如：FongMi-TV-release-leanback-arm64_v8a.apk -> leanback-arm64_v8a.apk）
-                newname=$(echo "$file" | sed 's/FongMi-TV-release-//')
+                # 提取 flavor 信息（例如：FongMi-TV-fongmi-leanback-arm64_v8a.apk -> leanback-arm64_v8a.apk）
+                newname=$(echo "$file" | sed 's/FongMi-TV-${{ matrix.branchName }}-//')
                 if [ "$file" != "$newname" ]; then
                   mv "$file" "$newname"
                   echo "重命名: $file -> $newname"
