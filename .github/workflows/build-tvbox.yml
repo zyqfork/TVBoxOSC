@@ -74,7 +74,7 @@ jobs:
           git clone ${{ env.upStream }} TVBoxOSC
           cd TVBoxOSC
           git checkout ${{ env.commit }}
-          echo "tag=$(git log --date=format:'%Y%m%d-%H%M' --pretty=format:%cd ${{ env.commitS }} -1)" >> $GITHUB_ENV
+          echo "tag=$(git log --date=format:'%Y%m%d-%H%M' --pretty=format:%cd -1 ${{ env.commit }})" >> $GITHUB_ENV
 
       - name: Setup Python 3.10
         if: ${{ env.commit }}
