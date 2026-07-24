@@ -96,6 +96,12 @@ jobs:
           cd "${{ github.workspace }}/fongmi-media"
           chmod +x gradlew
 
+          # 修补 missing_aar_type_workaround.gradle：补上未登记的依赖，避免 POM 生成时报"is not on the JAR or AAR list"
+          # smbj 是纯 JAR 库，加入 jar_only_dependencies 列表（按字母序排在 org.hamcrest:hamcrest-core 之后）
+          sed -i '/^        "junit:junit",$/a\        "com.hierynomus:smbj",' missing_aar_type_workaround.gradle
+          echo "=== 已修补 missing_aar_type_workaround.gradle，新增 smbj ==="
+          grep -n "smbj" missing_aar_type_workaround.gradle
+
           # init script 激活 publish.gradle（它检测 gradle.ext.rootProjectIsAndroidXMedia3）
           cat > /tmp/media3-init.gradle << 'INITEOF'
           gradle.ext.rootProjectIsAndroidXMedia3 = true
