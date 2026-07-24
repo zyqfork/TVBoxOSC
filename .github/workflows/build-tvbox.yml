@@ -96,11 +96,31 @@ jobs:
           cd "${{ github.workspace }}/fongmi-media"
           chmod +x gradlew
 
-          # 修补 missing_aar_type_workaround.gradle：补上未登记的依赖，避免 POM 生成时报"is not on the JAR or AAR list"
-          # smbj 是纯 JAR 库，加入 jar_only_dependencies 列表（按字母序排在 org.hamcrest:hamcrest-core 之后）
-          sed -i '/^        "junit:junit",$/a\        "com.hierynomus:smbj",' missing_aar_type_workaround.gradle
-          echo "=== 已修补 missing_aar_type_workaround.gradle，新增 smbj ==="
-          grep -n "smbj" missing_aar_type_workaround.gradle
+          # 修补 missing_aar_type_workaround.gradle：FongMi fork 引入了上游没有的依赖（smbj、brotli 等），
+          # 但白名单是硬编码的，未知依赖会直接抛 IllegalStateException。
+          # 将"未知依赖报错"改为"未知依赖默认按 JAR 处理"，避免打地鼠式逐个补白名单。
+          cat > /tmp/patch_workaround.py << 'PYEOF'
+          import sys
+          path = "missing_aar_type_workaround.gradle"
+          with open(path, "r") as f:
+              content = f.read()
+          old = '                        throw new IllegalStateException(\n                            dependencyName + " is not on the JAR or AAR list in missing_aar_type_workaround.gradle")'
+          new = '                        // 未知依赖默认视为 JAR（FongMi fork 可能引入上游没有的依赖）\n                        hasJar = true'
+          if old in content:
+              content = content.replace(old, new)
+              with open(path, "w") as f:
+                  f.write(content)
+              print("已修补 missing_aar_type_workaround.gradle：未知依赖默认按 JAR 处理")
+          else:
+              print("未找到目标字符串，可能已被修补或格式不同")
+              for i, line in enumerate(content.split("\n"), 1):
+                  if "is not on the JAR or AAR list" in line:
+                      print(f"  行 {i}: {line}")
+              sys.exit(1)
+          PYEOF
+          python3 /tmp/patch_workaround.py
+          echo "=== 验证修补结果 ==="
+          grep -n "hasJar = true\|is not on the JAR" missing_aar_type_workaround.gradle
 
           # init script 激活 publish.gradle（它检测 gradle.ext.rootProjectIsAndroidXMedia3）
           cat > /tmp/media3-init.gradle << 'INITEOF'
