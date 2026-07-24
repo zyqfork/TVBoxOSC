@@ -83,6 +83,56 @@ jobs:
           git checkout ${{ env.commit }}
           echo "tag=$(git log --date=format:'%Y%m%d-%H%M' --pretty=format:%cd -1 ${{ env.commit }})" >> $GITHUB_ENV
 
+      - name: Build FongMi Media3 Fork
+        if: ${{ env.commit && matrix.userName == 'FongMi' && matrix.repoName == 'TV' }}
+        run: |
+          set -euo pipefail
+
+          MEDIA3_REPO="${{ github.workspace }}/media3-local-repo"
+          mkdir -p "$MEDIA3_REPO"
+
+          git clone --depth=1 --branch=release-1.10.1-fongmi \
+            https://github.com/FongMi/media "${{ github.workspace }}/fongmi-media"
+          cd "${{ github.workspace }}/fongmi-media"
+          chmod +x gradlew
+
+          # init script 激活 publish.gradle（它检测 gradle.ext.rootProjectIsAndroidXMedia3）
+          cat > /tmp/media3-init.gradle << 'INITEOF'
+          gradle.ext.rootProjectIsAndroidXMedia3 = true
+          INITEOF
+
+          # maven-publish 插件生成的任务名为 publish{Publication}PublicationTo{Repository}MavenRepository
+          # publication 名为 release，repository 名为 maven（默认），故任务名为 publishReleasePublicationToMavenRepository
+          echo "可用的 publish 任务:"
+          ./gradlew tasks --all 2>/dev/null | grep -i "publishReleasePublicationToMavenRepository" || true
+
+          # 构建并发布必需的模块到本地 Maven
+          ./gradlew \
+            :lib-common:publishReleasePublicationToMavenRepository \
+            :lib-datasource:publishReleasePublicationToMavenRepository \
+            :lib-datasource-okhttp:publishReleasePublicationToMavenRepository \
+            :lib-session:publishReleasePublicationToMavenRepository \
+            :lib-ui-danmaku:publishReleasePublicationToMavenRepository \
+            --init-script /tmp/media3-init.gradle \
+            -PmavenRepo="$MEDIA3_REPO" \
+            -PreleaseVersion=1.10.1 \
+            --no-daemon --parallel
+
+          echo "media3Repo=$MEDIA3_REPO" >> $GITHUB_ENV
+          echo "FongMi Media3 构建完成，发布到: $MEDIA3_REPO"
+
+          # 验证产物是否生成
+          echo "=== 发布的产物 ==="
+          ls -la "$MEDIA3_REPO/androidx/media3/" 2>/dev/null || { echo "错误: 发布目录为空"; exit 1; }
+
+          # 验证必需的 artifact 都存在
+          for artifact in media3-common media3-session media3-ui-danmaku; do
+            if [ -z "$(find "$MEDIA3_REPO/androidx/media3/$artifact" -name '*.aar' 2>/dev/null | head -1)" ]; then
+              echo "错误: 缺少 $artifact 产物"; exit 1
+            fi
+          done
+          echo "所有必需产物验证通过"
+
       - name: Setup Python 3.10
         if: ${{ env.commit }}
         uses: actions/setup-python@v5
@@ -93,6 +143,40 @@ jobs:
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
         run: |
+          set -euo pipefail
+
+          # 为 FongMi/TV 注入本地 media3 Maven 仓库 + 依赖声明
+          if [ "${{ matrix.userName }}" == "FongMi" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
+            echo "注入 FongMi media3 本地仓库: ${{ env.media3Repo }}"
+
+            # 验证 media3Repo 已设置
+            if [ -z "${{ env.media3Repo }}" ]; then
+              echo "错误: media3Repo 环境变量未设置，Media3 fork 构建可能失败"; exit 1
+            fi
+
+            # 在 settings.gradle 的 google() 之前插入本地 Maven（确保优先级高于 Google Maven）
+            sed -i "s|google()|maven { url 'file://${{ env.media3Repo }}' }\n        google()|" settings.gradle
+
+            # 在 libs.versions.toml 的 [versions] 块末尾追加 media3 版本
+            sed -i '/^\[libraries\]/i media3 = "1.10.1"\n' gradle/libs.versions.toml
+
+            # 在 libs.versions.toml 的 [libraries] 块末尾追加三个 media3 库条目
+            sed -i '/^\[bundles\]/i media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }\nmedia3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }\nmedia3-ui-danmaku = { group = "androidx.media3", name = "media3-ui-danmaku", version.ref = "media3" }\n' gradle/libs.versions.toml
+
+            # 在 app/build.gradle 的 dependencies 块里追加三条 implementation
+            sed -i '/^    annotationProcessor libs.room.compiler/i\    implementation libs.media3.common\n    implementation libs.media3.session\n    implementation libs.media3.ui.danmaku' app/build.gradle
+
+            # 验证注入是否生效
+            echo "=== 验证 media3 注入结果 ==="
+            echo "--- settings.gradle media3 仓库 ---"
+            grep -n "media3-local-repo" settings.gradle || { echo "错误: settings.gradle 注入失败"; exit 1; }
+            echo "--- libs.versions.toml media3 条目 ---"
+            grep -n "media3" gradle/libs.versions.toml || { echo "错误: libs.versions.toml 注入失败"; exit 1; }
+            echo "--- app/build.gradle media3 依赖 ---"
+            grep -n "media3" app/build.gradle || { echo "错误: app/build.gradle 注入失败"; exit 1; }
+            echo "media3 依赖配置完成且验证通过"
+          fi
+
           echo 'crosswalk源,防挂'
           if grep -q 'crosswalk' build.gradle; then
             sed -i "/crosswalk/a\        maven { url 'https://o0halflife0o.github.io/crosswalk/releases/crosswalk/android/maven2' }" build.gradle
