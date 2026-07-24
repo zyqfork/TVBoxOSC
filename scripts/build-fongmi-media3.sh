@@ -58,9 +58,15 @@ echo "可用的 publish 任务:"
 
 ./gradlew \
   :lib-common:publishReleasePublicationToMavenRepository \
+  :lib-container:publishReleasePublicationToMavenRepository \
+  :lib-database:publishReleasePublicationToMavenRepository \
   :lib-datasource:publishReleasePublicationToMavenRepository \
   :lib-datasource-okhttp:publishReleasePublicationToMavenRepository \
+  :lib-decoder:publishReleasePublicationToMavenRepository \
+  :lib-extractor:publishReleasePublicationToMavenRepository \
+  :lib-exoplayer:publishReleasePublicationToMavenRepository \
   :lib-session:publishReleasePublicationToMavenRepository \
+  :lib-ui:publishReleasePublicationToMavenRepository \
   :lib-ui-danmaku:publishReleasePublicationToMavenRepository \
   --init-script "$init_script" \
   -PmavenRepo="$media3_repo" \
@@ -75,7 +81,21 @@ ls -la "$media3_repo/androidx/media3/" ||
     exit 1
   }
 
-for artifact in media3-common media3-session media3-ui-danmaku; do
+artifacts=(
+  media3-common
+  media3-container
+  media3-database
+  media3-datasource
+  media3-datasource-okhttp
+  media3-decoder
+  media3-extractor
+  media3-exoplayer
+  media3-session
+  media3-ui
+  media3-ui-danmaku
+)
+
+for artifact in "${artifacts[@]}"; do
   if ! find "$media3_repo/androidx/media3/$artifact" -name '*.aar' -print -quit |
     grep -q .; then
     echo "错误: 缺少 $artifact 产物" >&2
