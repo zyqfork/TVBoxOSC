@@ -86,78 +86,8 @@ jobs:
       - name: Build FongMi Media3 Fork
         if: ${{ env.commit && matrix.userName == 'FongMi' && matrix.repoName == 'TV' }}
         run: |
-          set -euo pipefail
-
-          MEDIA3_REPO="${{ github.workspace }}/media3-local-repo"
-          mkdir -p "$MEDIA3_REPO"
-
-          git clone --depth=1 --branch=release-1.10.1-fongmi \
-            https://github.com/FongMi/media "${{ github.workspace }}/fongmi-media"
-          cd "${{ github.workspace }}/fongmi-media"
-          chmod +x gradlew
-
-          # 修补 missing_aar_type_workaround.gradle：FongMi fork 引入了上游没有的依赖（smbj、brotli 等），
-          # 但白名单是硬编码的，未知依赖会直接抛 IllegalStateException。
-          # 将"未知依赖报错"改为"未知依赖默认按 JAR 处理"，避免打地鼠式逐个补白名单。
-          cat > /tmp/patch_workaround.py << 'PYEOF'
-          import sys
-          path = "missing_aar_type_workaround.gradle"
-          with open(path, "r") as f:
-              content = f.read()
-          old = '                        throw new IllegalStateException(\n                            dependencyName + " is not on the JAR or AAR list in missing_aar_type_workaround.gradle")'
-          new = '                        // 未知依赖默认视为 JAR（FongMi fork 可能引入上游没有的依赖）\n                        hasJar = true'
-          if old in content:
-              content = content.replace(old, new)
-              with open(path, "w") as f:
-                  f.write(content)
-              print("已修补 missing_aar_type_workaround.gradle：未知依赖默认按 JAR 处理")
-          else:
-              print("未找到目标字符串，可能已被修补或格式不同")
-              for i, line in enumerate(content.split("\n"), 1):
-                  if "is not on the JAR or AAR list" in line:
-                      print(f"  行 {i}: {line}")
-              sys.exit(1)
-          PYEOF
-          python3 /tmp/patch_workaround.py
-          echo "=== 验证修补结果 ==="
-          grep -n "hasJar = true\|is not on the JAR" missing_aar_type_workaround.gradle
-
-          # init script 激活 publish.gradle（它检测 gradle.ext.rootProjectIsAndroidXMedia3）
-          cat > /tmp/media3-init.gradle << 'INITEOF'
-          gradle.ext.rootProjectIsAndroidXMedia3 = true
-          INITEOF
-
-          # maven-publish 插件生成的任务名为 publish{Publication}PublicationTo{Repository}MavenRepository
-          # publication 名为 release，repository 名为 maven（默认），故任务名为 publishReleasePublicationToMavenRepository
-          echo "可用的 publish 任务:"
-          ./gradlew tasks --all 2>/dev/null | grep -i "publishReleasePublicationToMavenRepository" || true
-
-          # 构建并发布必需的模块到本地 Maven
-          ./gradlew \
-            :lib-common:publishReleasePublicationToMavenRepository \
-            :lib-datasource:publishReleasePublicationToMavenRepository \
-            :lib-datasource-okhttp:publishReleasePublicationToMavenRepository \
-            :lib-session:publishReleasePublicationToMavenRepository \
-            :lib-ui-danmaku:publishReleasePublicationToMavenRepository \
-            --init-script /tmp/media3-init.gradle \
-            -PmavenRepo="$MEDIA3_REPO" \
-            -PreleaseVersion=1.10.1 \
-            --no-daemon --parallel
-
-          echo "media3Repo=$MEDIA3_REPO" >> $GITHUB_ENV
-          echo "FongMi Media3 构建完成，发布到: $MEDIA3_REPO"
-
-          # 验证产物是否生成
-          echo "=== 发布的产物 ==="
-          ls -la "$MEDIA3_REPO/androidx/media3/" 2>/dev/null || { echo "错误: 发布目录为空"; exit 1; }
-
-          # 验证必需的 artifact 都存在
-          for artifact in media3-common media3-session media3-ui-danmaku; do
-            if [ -z "$(find "$MEDIA3_REPO/androidx/media3/$artifact" -name '*.aar' 2>/dev/null | head -1)" ]; then
-              echo "错误: 缺少 $artifact 产物"; exit 1
-            fi
-          done
-          echo "所有必需产物验证通过"
+          chmod +x scripts/build-fongmi-media3.sh
+          scripts/build-fongmi-media3.sh "${{ github.workspace }}"
 
       - name: Setup Python 3.10
         if: ${{ env.commit }}
@@ -181,13 +111,13 @@ jobs:
             fi
 
             # 在 settings.gradle 的 google() 之前插入本地 Maven（确保优先级高于 Google Maven）
-            sed -i "s|google()|maven { url 'file://${{ env.media3Repo }}' }\n        google()|" settings.gradle
+            sed -i "s|google()|maven { url = uri('file://${{ env.media3Repo }}') }\n        google()|" settings.gradle
 
-            # 在 libs.versions.toml 的 [versions] 块末尾追加 media3 版本
-            sed -i '/^\[libraries\]/i media3 = "1.10.1"\n' gradle/libs.versions.toml
+            # 紧跟表头插入，避免依赖上游各 TOML 表的排列顺序
+            sed -i '/^\[versions\]/a media3 = "1.10.1"' gradle/libs.versions.toml
 
-            # 在 libs.versions.toml 的 [libraries] 块末尾追加三个 media3 库条目
-            sed -i '/^\[bundles\]/i media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }\nmedia3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }\nmedia3-ui-danmaku = { group = "androidx.media3", name = "media3-ui-danmaku", version.ref = "media3" }\n' gradle/libs.versions.toml
+            # 必须插入 [libraries] 表内；插到 [bundles] 前可能落入上游新增的 [plugins] 表
+            sed -i '/^\[libraries\]/a media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }\nmedia3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }\nmedia3-ui-danmaku = { group = "androidx.media3", name = "media3-ui-danmaku", version.ref = "media3" }' gradle/libs.versions.toml
 
             # 在 app/build.gradle 的 dependencies 块里追加三条 implementation
             sed -i '/^    annotationProcessor libs.room.compiler/i\    implementation libs.media3.common\n    implementation libs.media3.session\n    implementation libs.media3.ui.danmaku' app/build.gradle
