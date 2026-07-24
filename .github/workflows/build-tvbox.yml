@@ -110,6 +110,10 @@ jobs:
               echo "错误: media3Repo 环境变量未设置，Media3 fork 构建可能失败"; exit 1
             fi
 
+            # 公开仓库缺少 MPV Media3 封装，兼容构建回退到 ExoPlayer
+            chmod +x ../scripts/patch-fongmi-tv.sh
+            ../scripts/patch-fongmi-tv.sh "$PWD"
+
             # 在 settings.gradle 的 google() 之前插入本地 Maven（确保优先级高于 Google Maven）
             sed -i "s|google()|maven { url = uri('file://${{ env.media3Repo }}') }\n        google()|" settings.gradle
 

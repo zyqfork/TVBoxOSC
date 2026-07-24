@@ -19,6 +19,117 @@ git clone --depth=1 --branch=release-1.10.1-fongmi \
 cd "$source_dir"
 chmod +x gradlew
 
+# FongMi/TV 引用了尚未公开到 FongMi/media 的两个兼容类。
+# PlayerSeekView 用公开的 PlayerControlView 实现；DiskPreloadManager 保留 API，
+# 但不执行预加载，确保公开源码构建不会改变正常播放路径。
+python3 - <<'PYEOF'
+from pathlib import Path
+
+files = {
+    Path("libraries/ui/src/main/java/androidx/media3/ui/PlayerSeekView.java"): r'''package androidx.media3.ui;
+
+import android.content.Context;
+import android.util.AttributeSet;
+
+import androidx.annotation.Nullable;
+import androidx.media3.common.util.UnstableApi;
+
+/** Compatibility seek controller used by FongMi/TV. */
+@UnstableApi
+public final class PlayerSeekView extends PlayerControlView {
+
+    public PlayerSeekView(Context context) {
+        this(context, null);
+    }
+
+    public PlayerSeekView(Context context, @Nullable AttributeSet attrs) {
+        this(context, attrs, 0);
+    }
+
+    public PlayerSeekView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+    }
+
+    public TimeBar getTimeBar() {
+        return (TimeBar) findViewById(R.id.exo_progress);
+    }
+}
+''',
+    Path("libraries/exoplayer/src/main/java/androidx/media3/exoplayer/source/preload/DiskPreloadManager.java"): r'''package androidx.media3.exoplayer.source.preload;
+
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.PriorityTaskManager;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.datasource.DataSource;
+import androidx.media3.datasource.cache.Cache;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.RenderersFactory;
+
+/**
+ * Compatibility API for FongMi/TV.
+ *
+ * <p>The original disk preloader is not present in the public repository. This
+ * implementation deliberately performs no background preload while preserving
+ * the public API expected by the app.
+ */
+@UnstableApi
+public final class DiskPreloadManager {
+
+    private DiskPreloadManager() {}
+
+    public void start(ExoPlayer player, MediaItem mediaItem, Options options) {}
+
+    public void release() {}
+
+    public static final class Builder {
+
+        public Builder(
+                Cache cache,
+                DataSource.Factory upstreamDataSourceFactory,
+                RenderersFactory renderersFactory) {}
+
+        public Builder setPriorityTaskManager(PriorityTaskManager priorityTaskManager) {
+            return this;
+        }
+
+        public DiskPreloadManager build() {
+            return new DiskPreloadManager();
+        }
+    }
+
+    public static final class Options {
+
+        private Options() {}
+
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        public static final class Builder {
+
+            public Builder setDurationMs(long durationMs) {
+                return this;
+            }
+
+            public Builder setMaxThreads(int maxThreads) {
+                return this;
+            }
+
+            public Options build() {
+                return new Options();
+            }
+        }
+    }
+}
+''',
+}
+
+for path, content in files.items():
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8", newline="\n")
+    print(f"已注入公开源码兼容类: {path}")
+PYEOF
+
 # FongMi fork 引入了上游白名单中没有的依赖（如 smbj、brotli）。
 # 将未知依赖按 JAR 处理，避免 missing_aar_type_workaround.gradle 直接报错。
 python3 - <<'PYEOF'
