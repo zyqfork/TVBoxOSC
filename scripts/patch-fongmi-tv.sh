@@ -33,6 +33,56 @@ for old, new in replacements.items():
 
 factory.write_text(content, encoding="utf-8", newline="\n")
 
+playback = root / "app/src/main/java/com/fongmi/android/tv/ui/activity/PlaybackActivity.java"
+content = playback.read_text(encoding="utf-8")
+debug_methods = {
+    """    public boolean isDebugViewVisible() {
+        return getPlayerView().isDebugViewVisible();
+    }""":
+    """    public boolean isDebugViewVisible() {
+        // 公开版 Media3 PlayerView 不包含 FongMi 的调试面板。
+        return false;
+    }""",
+    """    public void toggleDebugView() {
+        getPlayerView().toggleDebugView();
+    }""":
+    """    public void toggleDebugView() {
+        // 公开源码兼容构建：无调试面板可切换。
+    }""",
+    """    public void hideDebugView() {
+        getPlayerView().hideDebugView();
+    }""":
+    """    public void hideDebugView() {
+        // 公开源码兼容构建：无调试面板可隐藏。
+    }""",
+}
+for old, new in debug_methods.items():
+    if old not in content:
+        raise SystemExit(f"PlaybackActivity.java 结构已变化，未找到: {old.splitlines()[0].strip()}")
+    content = content.replace(old, new)
+playback.write_text(content, encoding="utf-8", newline="\n")
+print("已禁用公开版 PlayerView 不支持的调试面板")
+
+exo_util = root / "app/src/main/java/com/fongmi/android/tv/player/exo/ExoUtil.java"
+content = exo_util.read_text(encoding="utf-8")
+private_renderer_chain = (
+    "        return factory.setFfmpegAudioPrefer(audioPrefer)"
+    ".setFfmpegVideoPrefer(videoPrefer)"
+    ".setEnableDecoderFallback(true)"
+    ".setEnableDv7HevcFallback(PlayerSetting.isDv7HevcFallback())"
+    ".setExtensionRendererMode(renderMode);"
+)
+public_renderer_chain = (
+    "        // FongMi 私有的 FFmpeg 偏好和 DV7 fallback API 未包含在公开 Media3 中。\n"
+    "        return factory.setEnableDecoderFallback(true)"
+    ".setExtensionRendererMode(renderMode);"
+)
+if private_renderer_chain not in content:
+    raise SystemExit("ExoUtil.java 结构已变化，未找到私有 renderer 配置链")
+content = content.replace(private_renderer_chain, public_renderer_chain)
+exo_util.write_text(content, encoding="utf-8", newline="\n")
+print("已移除公开 Media3 不支持的 FFmpeg/DV7 renderer 配置")
+
 for relative in (
     "app/src/main/java/com/fongmi/android/tv/player/mpv/MpvPlayerEngine.java",
     "app/src/main/java/com/fongmi/android/tv/player/mpv/MpvUtil.java",
