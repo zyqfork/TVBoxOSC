@@ -169,6 +169,13 @@ jobs:
           restore-keys: |
             gradle-deps-${{ matrix.repoName }}-${{ runner.os }}-
 
+      - name: Install Android NDK toolchains
+        if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
+        run: |
+          # media3compat 源码构建 dav1d/mpv/ffmpeg，需要 NDK 26.1/29 + cmake
+          sdkmanager "ndk;26.1.10909125" "ndk;29.0.14206865" "cmake;3.22.1"
+          docker version
+
       - name: Build With Gradle
         if: ${{ env.commit }}
         working-directory: TVBoxOSC
