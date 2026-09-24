@@ -14,8 +14,8 @@ init_script="${RUNNER_TEMP:-/tmp}/media3-init.gradle"
 
 mkdir -p "$media3_repo"
 
-git clone --depth=1 --branch=release-1.10.1-fongmi \
-  https://github.com/FongMi/media "$source_dir"
+git clone --filter=blob:none https://github.com/FongMi/media "$source_dir"
+git -C "$source_dir" checkout --detach c8a183b8ca7e57f43213c55f418d89fe45965db8
 cd "$source_dir"
 chmod +x gradlew
 

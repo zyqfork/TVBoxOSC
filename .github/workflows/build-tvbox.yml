@@ -40,19 +40,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - name: Ensure Table Format
-        if: ${{ env.commit }}
-        run: |
-          # 检查是否存在 Build Time 列,如果不存在则添加
-          if ! grep -q "| Build Time |" README.md; then
-            sed -i '/| Repository.*| Branch.*| Last Update/s/|$/| Build Time |/' README.md
-            sed -i '/|--*|--*|--*/s/|$/|--*|/' README.md
-            sed -i '/\[.*\].*|.*|.*[a-z0-9]\{40\}/s/|$/| - |/' README.md
-          fi
 
       - name: Check New Commit
         run: |
@@ -85,7 +76,7 @@ jobs:
 
       - name: Cache Media3 Maven Local
         if: ${{ env.commit }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.m2/repository
           key: media3-maven-${{ runner.os }}-${{ hashFiles('scripts/build-fongmi-media3.sh') }}
@@ -100,7 +91,7 @@ jobs:
 
       - name: Setup Python 3.10
         if: ${{ env.commit }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
 
@@ -238,12 +229,6 @@ jobs:
           fi
           
 
-      - name: Compress Source Code
-        if: ${{ env.commit }}
-        working-directory: TVBoxOSC
-        run: |
-          #zip -q -x ".git/*" -x  ".github/*" -r source-${{ env.commitS }}.zip .
-          tar -cJf source-${{ env.commitS }}.tar.xz --exclude=.git --exclude=.github *
 
       - name: Release Apk Sign
         if: ${{ env.commit }}
@@ -266,14 +251,14 @@ jobs:
 
       - name: Setup JDK
         if: ${{ env.commit }}
-        uses: actions/setup-java@main
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: ${{ matrix.jdkVersion }}
 
       - name: Setup Gradle
         if: ${{ env.commit }}
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
 
       - name: Create local.properties
         if: ${{ env.commit }}
@@ -290,7 +275,7 @@ jobs:
 
       - name: Cache source-built native libraries
         if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches/fongmi-libmpv
@@ -303,7 +288,7 @@ jobs:
 
       - name: Cache Gradle dependencies
         if: ${{ env.commit }}
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/wrapper
@@ -423,7 +408,7 @@ jobs:
           fi
 
       - name: Upload App To Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: ${{ env.commit }}
         with:
           name: ${{ matrix.userName }}-${{ matrix.repoName }}-${{ matrix.branchName }}
@@ -436,7 +421,7 @@ jobs:
           echo "commit=" >> $GITHUB_ENV
 
       - name: Release and Upload Assets
-        uses: ncipollo/release-action@main
+        uses: ncipollo/release-action@v1
         if: ${{ env.commit }}
         with:
           name: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}_${{ env.tag }}
@@ -446,9 +431,8 @@ jobs:
           removeArtifacts: true
           artifacts: |
             TVBoxOSC/apk/*.apk
-            TVBoxOSC/source-${{ env.commitS }}.*
 
-      - uses: dev-drprasad/delete-older-releases@master
+      - uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
           keep_latest: 5
           delete_tags: true
@@ -563,7 +547,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Delete workflow runs
-        uses: GitRML/delete-workflow-runs@main
+        uses: GitRML/delete-workflow-runs@v0.2.0
         with:
           retain_days: 1
           keep_minimum_runs: 3
