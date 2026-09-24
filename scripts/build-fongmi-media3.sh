@@ -167,16 +167,10 @@ echo "可用的 publish 任务:"
 ./gradlew tasks --all 2>/dev/null |
   grep -i "publishToMavenLocal" || true
 
+# 只发 zyqfork/TV 需要的 fork 模块；lib-exoplayer 等走 Google Maven，
+# 避免 DiskPreloadManager 与 media3compat 自带副本重复（R8 defined multiple times）。
 ./gradlew \
   :lib-common:publishToMavenLocal \
-  :lib-container:publishToMavenLocal \
-  :lib-database:publishToMavenLocal \
-  :lib-datasource:publishToMavenLocal \
-  :lib-datasource-okhttp:publishToMavenLocal \
-  :lib-decoder:publishToMavenLocal \
-  :lib-extractor:publishToMavenLocal \
-  :lib-exoplayer:publishToMavenLocal \
-  :lib-session:publishToMavenLocal \
   :lib-ui:publishToMavenLocal \
   :lib-ui-danmaku:publishToMavenLocal \
   --init-script "$init_script" \
@@ -194,14 +188,6 @@ ls -la "$m2/androidx/media3/" ||
 
 artifacts=(
   media3-common
-  media3-container
-  media3-database
-  media3-datasource
-  media3-datasource-okhttp
-  media3-decoder
-  media3-extractor
-  media3-exoplayer
-  media3-session
   media3-ui
   media3-ui-danmaku
 )
