@@ -198,7 +198,9 @@ jobs:
               echo "${prop}" >> gradle.properties
             fi
           done
-          ./gradlew assemblerelease --build-cache --parallel --daemon --warning-mode all
+          # 只编 arm64 变体，与 zyqfork/TV 自身 CI 一致；全量 assemblerelease 会拉上
+          # armeabi_v7a/x86_64 并触发 mergeJavaRes 压缩信息错误。
+          ./gradlew assembleLeanbackArm64_v8aRelease assembleMobileArm64_v8aRelease --build-cache --parallel --daemon --stacktrace
 
       - name: Prepare App
         if: ${{ env.commit }}
