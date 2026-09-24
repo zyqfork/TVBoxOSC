@@ -30,10 +30,6 @@ jobs:
             branchName: main
             jdkVersion: 17
           - userName: zyqfork
-            repoName: TVBox
-            branchName: 4.4
-            jdkVersion: 17
-          - userName: zyqfork
             repoName: TV
             branchName: release
             jdkVersion: 17
@@ -116,23 +112,9 @@ jobs:
             # 在 settings.gradle 的 google() 之前插入本地 Maven（确保优先级高于 Google Maven）
             sed -i "s|google()|maven { url = uri('file://${{ env.media3Repo }}') }\n        google()|" settings.gradle
 
-            # zyqfork/TV 的 media3compat/build.gradle 已声明 androidx.media3:*:1.10.1
-
-            # 必须插入 [libraries] 表内；显式列出应用使用的 fork 模块
-            sed -i '/^\[libraries\]/a media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }\nmedia3-container = { group = "androidx.media3", name = "media3-container", version.ref = "media3" }\nmedia3-database = { group = "androidx.media3", name = "media3-database", version.ref = "media3" }\nmedia3-datasource = { group = "androidx.media3", name = "media3-datasource", version.ref = "media3" }\nmedia3-datasource-okhttp = { group = "androidx.media3", name = "media3-datasource-okhttp", version.ref = "media3" }\nmedia3-decoder = { group = "androidx.media3", name = "media3-decoder", version.ref = "media3" }\nmedia3-extractor = { group = "androidx.media3", name = "media3-extractor", version.ref = "media3" }\nmedia3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }\nmedia3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }\nmedia3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }\nmedia3-ui-danmaku = { group = "androidx.media3", name = "media3-ui-danmaku", version.ref = "media3" }' gradle/libs.versions.toml
-
-            # 显式声明全部模块，避免 fork 的 POM 传递关系变化造成编译类缺失
-            sed -i '/^    annotationProcessor libs.room.compiler/i\    implementation libs.media3.common\n    implementation libs.media3.container\n    implementation libs.media3.database\n    implementation libs.media3.datasource\n    implementation libs.media3.datasource.okhttp\n    implementation libs.media3.decoder\n    implementation libs.media3.extractor\n    implementation libs.media3.exoplayer\n    implementation libs.media3.session\n    implementation libs.media3.ui\n    implementation libs.media3.ui.danmaku' app/build.gradle
-
-            # 验证注入是否生效
-            echo "=== 验证 media3 注入结果 ==="
-            echo "--- settings.gradle media3 仓库 ---"
-            grep -n "media3-local-repo" settings.gradle || { echo "错误: settings.gradle 注入失败"; exit 1; }
-            echo "--- libs.versions.toml media3 条目 ---"
-            grep -n "media3" gradle/libs.versions.toml || { echo "错误: libs.versions.toml 注入失败"; exit 1; }
-            echo "--- app/build.gradle media3 依赖 ---"
-            grep -n "media3" app/build.gradle || { echo "错误: app/build.gradle 注入失败"; exit 1; }
-            echo "media3 依赖配置完成且验证通过"
+            # zyqfork/TV: media3compat/build.gradle 已声明 androidx.media3:*:1.10.1
+            # 无需注入 libs.versions.toml / app/build.gradle（注入 version.ref=media3 会破坏 catalog）
+            echo "zyqfork/TV media3 依赖已内置，跳过 catalog 注入"
           fi
 
           echo 'crosswalk源,防挂'
@@ -221,12 +203,6 @@ jobs:
             fi
           fi
           
-          # 为 zyqfork/TVBox 添加更新检测 URL 配置（如果将来需要添加更新检测功能）
-          # 注意：zyqfork/TVBox 目前没有更新检测代码，这里只是为将来做准备
-          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TVBox" ]; then
-            echo "zyqfork/TVBox 目前没有更新检测功能，但已准备好版本检测 JSON 文件"
-            echo "如需添加更新检测功能，可以参考 fongmi/tv 的实现方式"
-          fi
           
 
 
@@ -347,35 +323,6 @@ jobs:
             done
           fi
           
-          # 为 zyqfork/TVBox 生成版本检测 JSON 文件
-          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TVBox" ]; then
-            echo "生成 zyqfork/TVBox 版本检测 JSON 文件..."
-            # 读取版本信息
-            VERSION_CODE=$(grep "versionCode" app/build.gradle | head -1 | sed 's/.*versionCode //' | sed 's/[^0-9]//g')
-            VERSION_NAME=$(grep "versionName" app/build.gradle | head -1 | sed 's/.*versionName "//' | sed 's/".*//')
-            
-            # 为每个 flavor 组合生成 JSON 文件
-            # zyqfork/TVBox 的 APK 文件名格式: zyqfork-TVBox-{branch}-TVBox_release-{brand}-{abi}-{mode}.apk
-            for apk_file in apk/zyqfork-TVBox-${{ matrix.branchName }}-*.apk; do
-              if [ -f "$apk_file" ]; then
-                filename=$(basename "$apk_file")
-                # 提取 flavor 信息（例如：zyqfork-TVBox-main-TVBox_release-generic-arm64-java.apk）
-                # 移除前缀 "zyqfork-TVBox-{branch}-"
-                flavor_part=$(echo "$filename" | sed "s/zyqfork-TVBox-${{ matrix.branchName }}-//" | sed 's/\.apk$//')
-                # 提取 TVBox_release- 后面的部分
-                if [[ "$flavor_part" =~ ^TVBox_release-(.+)$ ]]; then
-                  flavors="${BASH_REMATCH[1]}"
-                  # 生成 JSON 文件名：使用分支名和 flavor 组合作为标识
-                  json_file="apk/${flavors}-${{ matrix.branchName }}.json"
-                  
-                  # 生成 JSON 文件
-                  printf '{\n  "name": "%s",\n  "desc": "版本 %s\\n构建时间: %s\\nCommit: %s",\n  "code": %s\n}' \
-                    "${VERSION_NAME}" "${VERSION_NAME}" "${{ env.tag }}" "${{ env.commitS }}" "${VERSION_CODE}" > "$json_file"
-                  echo "已生成: $json_file (version: $VERSION_NAME, code: $VERSION_CODE)"
-                fi
-              fi
-            done
-          fi
 
       - name: Release Note
         if: ${{ env.commit }}
@@ -441,7 +388,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy Update Files to gh-pages
-        if: ${{ env.commit && ((matrix.userName == 'zyqfork' && matrix.repoName == 'TV') || (matrix.userName == 'zyqfork' && matrix.repoName == 'TVBox')) }}
+        if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
         run: |
           echo "部署更新文件到 gh-pages 分支..."
           git config --global user.name "github-actions[bot]"
@@ -475,28 +422,6 @@ jobs:
               if [ -f "$file" ]; then
                 # 提取 flavor 信息（例如：zyqfork-TV-release-leanback-arm64_v8a.apk -> leanback-arm64_v8a.apk）
                 newname=$(echo "$file" | sed 's/zyqfork-TV-${{ matrix.branchName }}-//')
-                if [ "$file" != "$newname" ]; then
-                  mv "$file" "$newname"
-                  echo "重命名: $file -> $newname"
-                fi
-              fi
-            done
-            cd ../..
-          fi
-          
-          # 处理 zyqfork/TVBox 的文件
-          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TVBox" ]; then
-            # 复制 JSON 文件（匹配当前分支的 JSON 文件）
-            cp -f ${{ github.workspace }}/TVBoxOSC/apk/*-${{ matrix.branchName }}.json "$APK_DIR/" 2>/dev/null || true
-            # 复制 APK 文件
-            cp -f ${{ github.workspace }}/TVBoxOSC/apk/zyqfork-TVBox-${{ matrix.branchName }}-*.apk "$APK_DIR/" 2>/dev/null || true
-            # 重命名 APK 文件以匹配更新检测的命名格式
-            cd "$APK_DIR"
-            for file in zyqfork-TVBox-${{ matrix.branchName }}-*.apk; do
-              if [ -f "$file" ]; then
-                # 提取文件名（例如：zyqfork-TVBox-main-TVBox_release-generic-arm64-java.apk -> TVBox_release-generic-arm64-java.apk）
-                # 移除前缀 "zyqfork-TVBox-{branch}-"
-                newname=$(echo "$file" | sed "s/zyqfork-TVBox-${{ matrix.branchName }}-//")
                 if [ "$file" != "$newname" ]; then
                   mv "$file" "$newname"
                   echo "重命名: $file -> $newname"
