@@ -169,6 +169,12 @@ jobs:
           restore-keys: |
             gradle-deps-${{ matrix.repoName }}-${{ runner.os }}-
 
+      - name: Setup Android SDK
+        if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+
       - name: Install Android NDK toolchains
         if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
         run: |
