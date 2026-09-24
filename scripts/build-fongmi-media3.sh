@@ -183,9 +183,10 @@ echo "可用的 publish 任务:"
   -PreleaseVersion=1.10.1 \
   --no-daemon --parallel
 
-echo "FongMi Media3 构建完成，发布到: $media3_repo"
+m2="$HOME/.m2/repository"
+echo "FongMi Media3 构建完成，发布到: $m2"
 echo "=== 发布的产物 ==="
-ls -la "$media3_repo/androidx/media3/" ||
+ls -la "$m2/androidx/media3/" ||
   {
     echo "错误: 发布目录为空" >&2
     exit 1
@@ -206,7 +207,7 @@ artifacts=(
 )
 
 for artifact in "${artifacts[@]}"; do
-  if ! find "$media3_repo/androidx/media3/$artifact" -name '*.aar' -print -quit |
+  if ! find "$m2/androidx/media3/$artifact" -name '*.aar' -print -quit |
     grep -q .; then
     echo "错误: 缺少 $artifact 产物" >&2
     exit 1
