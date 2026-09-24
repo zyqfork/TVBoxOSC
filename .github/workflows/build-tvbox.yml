@@ -119,14 +119,10 @@ jobs:
             fi
             # Chaquopy PyPI 镜像里 cssselect 最高 1.2.0，新版 pyquery 要求 >=1.5.0。
             # 钉 pyquery 到 1.4.x 以兼容。
-            find . -name 'requirements*.txt' -o -name 'build.gradle' | while read -r f; do
-              if grep -q 'pyquery' "$f" 2>/dev/null; then
-                sed -i 's/pyquery[>=~!].*/pyquery==1.4.3/; s/^pyquery$/pyquery==1.4.3/' "$f" || true
-              fi
+            # 只改写已有的 pyquery 声明，避免重复 install 导致 Double requirement
+            find pyramid chaquo -name 'requirements*.txt' -o -name 'build.gradle' 2>/dev/null | while read -r f; do
+              sed -i 's/"pyquery[>=~!][^"]*"/"pyquery==1.4.3"/g; s/\bpyquery[>=~!][^[:space:]]*/pyquery==1.4.3/g' "$f" || true
             done
-            if [ -f "pyramid/build.gradle" ]; then
-              sed -i '/pip {/a\        install "pyquery==1.4.3"' pyramid/build.gradle || true
-            fi
           fi
 
           if [ "${{ matrix.userName }}" = "q215613905" ] && [ "${{ matrix.repoName }}" = "TVBoxOS" ]; then
