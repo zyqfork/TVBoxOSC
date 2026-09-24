@@ -198,9 +198,18 @@ jobs:
               echo "${prop}" >> gradle.properties
             fi
           done
-          # 只编 arm64 变体，与 zyqfork/TV 自身 CI 一致；全量 assemblerelease 会拉上
-          # armeabi_v7a/x86_64 并触发 mergeJavaRes 压缩信息错误。
-          ./gradlew assembleLeanbackArm64_v8aRelease assembleMobileArm64_v8aRelease --build-cache --parallel --daemon --stacktrace
+          # 移植 zyqfork/TV 自身 CI：按 ABI 分开编，FONGMI_NATIVE_ABIS 只含当前 ABI，
+          # 避免一次性 assemblerelease 触发 mergeJavaRes 压缩信息错误。
+          if [ "${{ matrix.userName }}" = "zyqfork" ] && [ "${{ matrix.repoName }}" = "TV" ]; then
+            FONGMI_NATIVE_ABIS=arm64-v8a ./gradlew \
+              assembleLeanbackArm64_v8aRelease assembleMobileArm64_v8aRelease \
+              --build-cache --parallel --daemon --stacktrace
+            FONGMI_NATIVE_ABIS=armeabi-v7a ./gradlew \
+              assembleLeanbackArmeabi_v7aRelease assembleMobileArmeabi_v7aRelease \
+              --build-cache --parallel --daemon --stacktrace
+          else
+            ./gradlew assemblerelease --build-cache --parallel --daemon --stacktrace
+          fi
 
       - name: Prepare App
         if: ${{ env.commit }}
