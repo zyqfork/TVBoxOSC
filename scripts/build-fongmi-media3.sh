@@ -22,7 +22,7 @@ chmod +x gradlew
 # FongMi/TV 引用了尚未公开到 FongMi/media 的两个兼容类。
 # PlayerSeekView 用公开的 PlayerControlView 实现；DiskPreloadManager 保留 API，
 # 但不执行预加载，确保公开源码构建不会改变正常播放路径。
-python3 - <<'PYEOF'
+# skipped compatibility stub injection (media3compat provides these classes)
 from pathlib import Path
 
 files = {
@@ -132,7 +132,7 @@ PYEOF
 
 # FongMi fork 引入了上游白名单中没有的依赖（如 smbj、brotli）。
 # 将未知依赖按 JAR 处理，避免 missing_aar_type_workaround.gradle 直接报错。
-python3 - <<'PYEOF'
+# skipped compatibility stub injection (media3compat provides these classes)
 import sys
 
 path = "missing_aar_type_workaround.gradle"
