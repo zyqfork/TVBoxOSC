@@ -65,9 +65,10 @@ jobs:
       - name: Checkout Source Code
         if: ${{ env.commit }}
         run: |
-          git clone ${{ env.upStream }} TVBoxOSC
+          git clone --recurse-submodules ${{ env.upStream }} TVBoxOSC
           cd TVBoxOSC
           git checkout ${{ env.commit }}
+          git submodule update --init --recursive
           echo "tag=$(git log --date=format:'%Y%m%d-%H%M' --pretty=format:%cd -1 ${{ env.commit }})" >> $GITHUB_ENV
 
       - name: Cache Media3 Maven Local

@@ -165,22 +165,21 @@ printf '%s\n' 'gradle.ext.rootProjectIsAndroidXMedia3 = true' > "$init_script"
 
 echo "可用的 publish 任务:"
 ./gradlew tasks --all 2>/dev/null |
-  grep -i "publishReleasePublicationToMavenRepository" || true
+  grep -i "publishToMavenLocal" || true
 
 ./gradlew \
-  :lib-common:publishReleasePublicationToMavenRepository \
-  :lib-container:publishReleasePublicationToMavenRepository \
-  :lib-database:publishReleasePublicationToMavenRepository \
-  :lib-datasource:publishReleasePublicationToMavenRepository \
-  :lib-datasource-okhttp:publishReleasePublicationToMavenRepository \
-  :lib-decoder:publishReleasePublicationToMavenRepository \
-  :lib-extractor:publishReleasePublicationToMavenRepository \
-  :lib-exoplayer:publishReleasePublicationToMavenRepository \
-  :lib-session:publishReleasePublicationToMavenRepository \
-  :lib-ui:publishReleasePublicationToMavenRepository \
-  :lib-ui-danmaku:publishReleasePublicationToMavenRepository \
+  :lib-common:publishToMavenLocal \
+  :lib-container:publishToMavenLocal \
+  :lib-database:publishToMavenLocal \
+  :lib-datasource:publishToMavenLocal \
+  :lib-datasource-okhttp:publishToMavenLocal \
+  :lib-decoder:publishToMavenLocal \
+  :lib-extractor:publishToMavenLocal \
+  :lib-exoplayer:publishToMavenLocal \
+  :lib-session:publishToMavenLocal \
+  :lib-ui:publishToMavenLocal \
+  :lib-ui-danmaku:publishToMavenLocal \
   --init-script "$init_script" \
-  -PmavenRepo="$media3_repo" \
   -PreleaseVersion=1.10.1 \
   --no-daemon --parallel
 
