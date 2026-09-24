@@ -97,9 +97,38 @@ jobs:
         working-directory: TVBoxOSC
         run: |
           set -euo pipefail
-          # zyqfork/TV 源码可直接构建，不做任何 sed/补丁修改。
-          # 其它上游（如需）可在此追加适配。
-          echo "skip source patches for ${{ matrix.userName }}/${{ matrix.repoName }}"
+          # zyqfork/TV 源码可直接构建，不做任何修改。
+          if [ "${{ matrix.userName }}" = "zyqfork" ] && [ "${{ matrix.repoName }}" = "TV" ]; then
+            echo "zyqfork/TV: no source patches"
+            exit 0
+          fi
+
+          # 其它上游：Chaquopy/Pyramid 需要把 buildPython 指到 CI 的 python3.10
+          # （否则 generate*PythonRequirements 失败）。
+          if [ "${{ matrix.userName }}" = "takagen99" ] && [ "${{ matrix.repoName }}" = "Box" ]; then
+            PYTHON_PATH=$(which python3.10)
+            if [ -f "pyramid/build.gradle" ]; then
+              if grep -q "buildPython" pyramid/build.gradle; then
+                sed -i "s|buildPython(\".*\")|buildPython(\"$PYTHON_PATH\")|g" pyramid/build.gradle
+              else
+                sed -i "/python {/a\            buildPython \"$PYTHON_PATH\"" pyramid/build.gradle
+              fi
+            fi
+            if [ -f "chaquo/build.gradle" ]; then
+              sed -i "/version \"3.10\"/a\            buildPython \"$PYTHON_PATH\"" chaquo/build.gradle
+            fi
+          fi
+
+          if [ "${{ matrix.userName }}" = "q215613905" ] && [ "${{ matrix.repoName }}" = "TVBoxOS" ]; then
+            PYTHON_PATH=$(which python3.10)
+            if [ -f "pyramid/build.gradle" ]; then
+              if grep -q "buildPython" pyramid/build.gradle; then
+                sed -i "s|buildPython(\".*\")|buildPython(\"$PYTHON_PATH\")|g" pyramid/build.gradle
+              else
+                sed -i "/python {/a\            buildPython \"$PYTHON_PATH\"" pyramid/build.gradle
+              fi
+            fi
+          fi
 
       - name: Release Apk Sign
         if: ${{ env.commit }}
