@@ -353,6 +353,7 @@ jobs:
 
       - name: Push to master
         if: ${{ env.commit }}
+        continue-on-error: true
         run: |
           rm -rf TVBoxOSC
           sed -i '/url =/d' ./.git/config
