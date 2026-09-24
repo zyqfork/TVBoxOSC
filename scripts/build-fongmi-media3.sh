@@ -3,7 +3,7 @@
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
-  echo "用法: $0 <github-workspace>" >&2
+  echo "usage: $0 <github-workspace>" >&2
   exit 2
 fi
 
@@ -19,156 +19,31 @@ git -C "$source_dir" checkout --detach c8a183b8ca7e57f43213c55f418d89fe45965db8
 cd "$source_dir"
 chmod +x gradlew
 
-# FongMi/TV 引用了尚未公开到 FongMi/media 的两个兼容类。
-# PlayerSeekView 用公开的 PlayerControlView 实现；DiskPreloadManager 保留 API，
-# 但不执行预加载，确保公开源码构建不会改变正常播放路径。
-# skipped compatibility stub injection (media3compat provides these classes)
+# No compatibility stubs: zyqfork/TV media3compat already provides
+# PlayerSeekView / DiskPreloadManager. Injecting stubs causes R8 duplicate classes.
+
+# Allow unknown deps to resolve as JAR (smbj/brotli etc. from FongMi fork).
+python3 - <<'PYEOF'
 from pathlib import Path
-
-files = {
-    Path("libraries/ui/src/main/java/androidx/media3/ui/PlayerSeekView.java"): r'''package androidx.media3.ui;
-
-import android.content.Context;
-import android.util.AttributeSet;
-
-import androidx.annotation.Nullable;
-import androidx.media3.common.util.UnstableApi;
-
-/** Compatibility seek controller used by FongMi/TV. */
-@UnstableApi
-public final class PlayerSeekView extends PlayerControlView {
-
-    public PlayerSeekView(Context context) {
-        this(context, null);
-    }
-
-    public PlayerSeekView(Context context, @Nullable AttributeSet attrs) {
-        this(context, attrs, 0);
-    }
-
-    public PlayerSeekView(Context context, @Nullable AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-    }
-
-    public TimeBar getTimeBar() {
-        return (TimeBar) findViewById(R.id.exo_progress);
-    }
-}
-''',
-    Path("libraries/exoplayer/src/main/java/androidx/media3/exoplayer/source/preload/DiskPreloadManager.java"): r'''package androidx.media3.exoplayer.source.preload;
-
-import androidx.media3.common.MediaItem;
-import androidx.media3.common.PriorityTaskManager;
-import androidx.media3.common.util.UnstableApi;
-import androidx.media3.datasource.DataSource;
-import androidx.media3.datasource.cache.Cache;
-import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.RenderersFactory;
-
-/**
- * Compatibility API for FongMi/TV.
- *
- * <p>The original disk preloader is not present in the public repository. This
- * implementation deliberately performs no background preload while preserving
- * the public API expected by the app.
- */
-@UnstableApi
-public final class DiskPreloadManager {
-
-    private DiskPreloadManager() {}
-
-    public void start(ExoPlayer player, MediaItem mediaItem, Options options) {}
-
-    public void release() {}
-
-    public static final class Builder {
-
-        public Builder(
-                Cache cache,
-                DataSource.Factory upstreamDataSourceFactory,
-                RenderersFactory renderersFactory) {}
-
-        public Builder setPriorityTaskManager(PriorityTaskManager priorityTaskManager) {
-            return this;
-        }
-
-        public DiskPreloadManager build() {
-            return new DiskPreloadManager();
-        }
-    }
-
-    public static final class Options {
-
-        private Options() {}
-
-        public static Builder builder() {
-            return new Builder();
-        }
-
-        public static final class Builder {
-
-            public Builder setDurationMs(long durationMs) {
-                return this;
-            }
-
-            public Builder setMaxThreads(int maxThreads) {
-                return this;
-            }
-
-            public Options build() {
-                return new Options();
-            }
-        }
-    }
-}
-''',
-}
-
-for path, content in files.items():
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8", newline="\n")
-    print(f"已注入公开源码兼容类: {path}")
-PYEOF
-
-# FongMi fork 引入了上游白名单中没有的依赖（如 smbj、brotli）。
-# 将未知依赖按 JAR 处理，避免 missing_aar_type_workaround.gradle 直接报错。
-# skipped compatibility stub injection (media3compat provides these classes)
 import sys
 
 path = "missing_aar_type_workaround.gradle"
-with open(path, "r", encoding="utf-8") as file:
-    content = file.read()
-
-old = '''                        throw new IllegalStateException(
-                            dependencyName + " is not on the JAR or AAR list in missing_aar_type_workaround.gradle")'''
-new = '''                        // 未知依赖默认视为 JAR（FongMi fork 可能引入上游没有的依赖）
-                        hasJar = true'''
-
-if old not in content:
-    print("未找到待修补的异常代码，源码可能已经变化：", file=sys.stderr)
-    for number, line in enumerate(content.splitlines(), 1):
-        if "is not on the JAR or AAR list" in line:
-            print(f"  行 {number}: {line}", file=sys.stderr)
+text = Path(path).read_text(encoding="utf-8")
+old = """                        throw new IllegalStateException(
+                            dependencyName + " is not on the JAR or AAR list in missing_aar_type_workaround.gradle")"""
+new = """                        // Unknown dependency: treat as JAR (FongMi fork extras)
+                        hasJar = true"""
+if old not in text:
+    print("patch target not found; source may have changed", file=sys.stderr)
     sys.exit(1)
-
-with open(path, "w", encoding="utf-8") as file:
-    file.write(content.replace(old, new))
-
-print("已修补 missing_aar_type_workaround.gradle：未知依赖默认按 JAR 处理")
+Path(path).write_text(text.replace(old, new), encoding="utf-8")
+print("patched missing_aar_type_workaround.gradle")
 PYEOF
 
-echo "=== 验证修补结果 ==="
-grep -n "hasJar = true\|is not on the JAR" missing_aar_type_workaround.gradle
-
-# publish.gradle 通过该扩展属性判断是否启用。
 printf '%s\n' 'gradle.ext.rootProjectIsAndroidXMedia3 = true' > "$init_script"
 
-echo "可用的 publish 任务:"
-./gradlew tasks --all 2>/dev/null |
-  grep -i "publishToMavenLocal" || true
-
-# 只发 zyqfork/TV 需要的 fork 模块；lib-exoplayer 等走 Google Maven，
-# 避免 DiskPreloadManager 与 media3compat 自带副本重复（R8 defined multiple times）。
+# Publish only the fork-specific modules zyqfork/TV needs.
+# lib-exoplayer etc. come from Google Maven (avoids duplicate DiskPreloadManager).
 ./gradlew \
   :lib-common:publishToMavenLocal \
   :lib-ui:publishToMavenLocal \
@@ -177,29 +52,18 @@ echo "可用的 publish 任务:"
   -PreleaseVersion=1.10.1 \
   --no-daemon --parallel
 
+echo "FongMi Media3 built to mavenLocal"
 m2="$HOME/.m2/repository"
-echo "FongMi Media3 构建完成，发布到: $m2"
-echo "=== 发布的产物 ==="
-ls -la "$m2/androidx/media3/" ||
-  {
-    echo "错误: 发布目录为空" >&2
-    exit 1
-  }
+ls -la "$m2/androidx/media3/" || { echo "publish dir empty" >&2; exit 1; }
 
-artifacts=(
-  media3-common
-  media3-ui
-  media3-ui-danmaku
-)
-
+artifacts=(media3-common media3-ui media3-ui-danmaku)
 for artifact in "${artifacts[@]}"; do
-  if ! find "$m2/androidx/media3/$artifact" -name '*.aar' -print -quit |
-    grep -q .; then
-    echo "错误: 缺少 $artifact 产物" >&2
+  if ! find "$m2/androidx/media3/$artifact" -name '*.aar' -print -quit | grep -q .; then
+    echo "missing artifact: $artifact" >&2
     exit 1
   fi
 done
-echo "所有必需产物验证通过"
+echo "artifacts verified"
 
 if [[ -n "${GITHUB_ENV:-}" ]]; then
   echo "media3Repo=$media3_repo" >> "$GITHUB_ENV"
