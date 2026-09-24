@@ -107,22 +107,35 @@ jobs:
           # （否则 generate*PythonRequirements 失败）。
           if [ "${{ matrix.userName }}" = "takagen99" ] && [ "${{ matrix.repoName }}" = "Box" ]; then
             PYTHON_PATH=$(which python3.10)
-            if [ -f "pyramid/build.gradle" ]; then
-              if grep -q "buildPython" pyramid/build.gradle; then
-                sed -i "s|buildPython(\".*\")|buildPython(\"$PYTHON_PATH\")|g" pyramid/build.gradle
-              else
-                sed -i "/python {/a\            buildPython \"$PYTHON_PATH\"" pyramid/build.gradle
-              fi
-            fi
-            if [ -f "chaquo/build.gradle" ]; then
-              sed -i "/version \"3.10\"/a\            buildPython \"$PYTHON_PATH\"" chaquo/build.gradle
-            fi
-            # Chaquopy PyPI 镜像里 cssselect 最高 1.2.0，新版 pyquery 要求 >=1.5.0。
-            # 钉 pyquery 到 1.4.x 以兼容。
-            # 只改写已有的 pyquery 声明，避免重复 install 导致 Double requirement
-            find pyramid chaquo -name 'requirements*.txt' -o -name 'build.gradle' 2>/dev/null | while read -r f; do
-              sed -i 's/"pyquery[>=~!][^"]*"/"pyquery==1.4.3"/g; s/\bpyquery[>=~!][^[:space:]]*/pyquery==1.4.3/g' "$f" || true
-            done
+            python3 - "$PYTHON_PATH" <<'PY'
+import re, sys
+from pathlib import Path
+py = sys.argv[1]
+# 1) buildPython path
+for p in [Path("pyramid/build.gradle"), Path("chaquo/build.gradle")]:
+    if not p.is_file():
+        continue
+    text = p.read_text(encoding="utf-8")
+    if "buildPython" in text:
+        text = re.sub(r'buildPython\(".*?"\)', f'buildPython("{py}")', text)
+    else:
+        text = text.replace("python {", f"python {{\n            buildPython \"{py}\"", 1)
+    p.write_text(text, encoding="utf-8")
+# 2) pin pyquery to 1.4.3 (Chaquopy mirror has cssselect<=1.2.0)
+for p in list(Path("pyramid").rglob("*")) + list(Path("chaquo").rglob("*")):
+    if p.suffix not in {".txt", ".gradle"} or not p.is_file():
+        continue
+    try:
+        text = p.read_text(encoding="utf-8")
+    except Exception:
+        continue
+    new = re.sub(r'pyquery[>=~!][^\s"\']*', 'pyquery==1.4.3', text)
+    new = re.sub(r'"pyquery[>=~!][^"]*"', '"pyquery==1.4.3"', new)
+    if new != text:
+        p.write_text(new, encoding="utf-8")
+        print("pinned pyquery in", p)
+print("Box patches applied")
+PY
           fi
 
           if [ "${{ matrix.userName }}" = "q215613905" ] && [ "${{ matrix.repoName }}" = "TVBoxOS" ]; then
