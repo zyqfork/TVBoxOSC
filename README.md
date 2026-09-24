@@ -11,9 +11,9 @@ This repo relies on the following third-party projects:
 > `zyqfork/TV` is a source-buildable fork (ExoPlayer + MPV/FFmpeg). No FongMi compatibility patch is applied.
 | Repository                               | Branch         | Last Update                              | Build Time |
 |------------------------------------------|----------------|------------------------------------------|------------|
-| [q215613905/TVBoxOS](https://github.com/q215613905/TVBoxOS) | main           | ab11d289e09963a9daf65ca7f6b7a9a8cbe184e1  | 2026-09-24 04:49:57 |
+| [q215613905/TVBoxOS](https://github.com/q215613905/TVBoxOS) | main           | ab11d289e09963a9daf65ca7f6b7a9a8cbe184e1  | 2026-09-24 05:05:00 |
 | [takagen99/Box](https://github.com/takagen99/Box)         | main           | 258a5fef61578869ae905ca230bdde9e99fc19a8 | 2026-02-28 09:54:51 |
 | [zyqfork/TVBox](https://github.com/zyqfork/TVBox)         | 4.4            | bd49f8bb9ee1ae79205b9d9558b068f9ea061d56 | 2026-01-16 09:46:08 |
 | [zyqfork/TV](https://github.com/zyqfork/TV)             | release        | 0000000000000000000000000000000000000000  | -                  |
 
-#### update at 2026-09-24 04:49:57
+#### update at 2026-09-24 05:05:00
