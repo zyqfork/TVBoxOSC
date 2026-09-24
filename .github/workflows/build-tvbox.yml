@@ -33,9 +33,9 @@ jobs:
             repoName: TVBox
             branchName: 4.4
             jdkVersion: 17
-          - userName: FongMi
+          - userName: zyqfork
             repoName: TV
-            branchName: fongmi
+            branchName: release
             jdkVersion: 17
 
     steps:
@@ -83,8 +83,17 @@ jobs:
           git checkout ${{ env.commit }}
           echo "tag=$(git log --date=format:'%Y%m%d-%H%M' --pretty=format:%cd -1 ${{ env.commit }})" >> $GITHUB_ENV
 
-      - name: Build FongMi Media3 Fork
-        if: ${{ env.commit && matrix.userName == 'FongMi' && matrix.repoName == 'TV' }}
+      - name: Cache Media3 Maven Local
+        if: ${{ env.commit }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: media3-maven-${{ runner.os }}-${{ hashFiles('scripts/build-fongmi-media3.sh') }}
+          restore-keys: |
+            media3-maven-${{ runner.os }}-
+
+      - name: Build Media3 Fork to Maven Local
+        if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
         run: |
           chmod +x scripts/build-fongmi-media3.sh
           scripts/build-fongmi-media3.sh "${{ github.workspace }}"
@@ -101,8 +110,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # 为 FongMi/TV 注入本地 media3 Maven 仓库 + 依赖声明
-          if [ "${{ matrix.userName }}" == "FongMi" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
+          # 为 zyqfork/TV 注入本地 media3 Maven 仓库 + 依赖声明
+          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
             echo "注入 FongMi media3 本地仓库: ${{ env.media3Repo }}"
 
             # 验证 media3Repo 已设置
@@ -110,15 +119,13 @@ jobs:
               echo "错误: media3Repo 环境变量未设置，Media3 fork 构建可能失败"; exit 1
             fi
 
-            # 公开仓库缺少 MPV Media3 封装，兼容构建回退到 ExoPlayer
-            chmod +x ../scripts/patch-fongmi-tv.sh
-            ../scripts/patch-fongmi-tv.sh "$PWD"
+            # zyqfork/TV 自带 MPV/FFmpeg 源码构建，禁止 patch-fongmi-tv（会禁用 MPV）
+            echo "跳过 patch-fongmi-tv.sh，保留 MPV 引擎"
 
             # 在 settings.gradle 的 google() 之前插入本地 Maven（确保优先级高于 Google Maven）
             sed -i "s|google()|maven { url = uri('file://${{ env.media3Repo }}') }\n        google()|" settings.gradle
 
-            # 紧跟表头插入，避免依赖上游各 TOML 表的排列顺序
-            sed -i '/^\[versions\]/a media3 = "1.10.1"' gradle/libs.versions.toml
+            # zyqfork/TV 的 media3compat/build.gradle 已声明 androidx.media3:*:1.10.1
 
             # 必须插入 [libraries] 表内；显式列出应用使用的 fork 模块
             sed -i '/^\[libraries\]/a media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }\nmedia3-container = { group = "androidx.media3", name = "media3-container", version.ref = "media3" }\nmedia3-database = { group = "androidx.media3", name = "media3-database", version.ref = "media3" }\nmedia3-datasource = { group = "androidx.media3", name = "media3-datasource", version.ref = "media3" }\nmedia3-datasource-okhttp = { group = "androidx.media3", name = "media3-datasource-okhttp", version.ref = "media3" }\nmedia3-decoder = { group = "androidx.media3", name = "media3-decoder", version.ref = "media3" }\nmedia3-extractor = { group = "androidx.media3", name = "media3-extractor", version.ref = "media3" }\nmedia3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }\nmedia3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }\nmedia3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }\nmedia3-ui-danmaku = { group = "androidx.media3", name = "media3-ui-danmaku", version.ref = "media3" }' gradle/libs.versions.toml
@@ -211,8 +218,8 @@ jobs:
             sed -i 's/android:authorities="com\.fongmi\.quickjs\.provider"/android:authorities="${applicationId}.quickjs.provider"/' app/src/main/AndroidManifest.xml
           fi
           
-          # 修改更新检测 URL 为当前仓库（仅针对 FongMi/TV）
-          if [ "${{ matrix.userName }}" == "FongMi" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
+          # 修改更新检测 URL 为当前仓库（仅针对 zyqfork/TV）
+          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
             echo "修改更新检测 URL 为当前仓库: ${{ github.repository }}"
             REPO_OWNER=$(echo "${{ github.repository }}" | cut -d'/' -f1)
             REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
@@ -243,8 +250,8 @@ jobs:
         working-directory: TVBoxOSC
         run: |
           cp -f ${{ github.workspace }}/.github/workflows/TVBoxOSC.jks app/TVBoxOSC.jks
-          if [ "${{ matrix.userName }}" == "FongMi" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
-            echo "FongMi/TV 使用原生 signingConfigs + local.properties，跳过 build.gradle 注入"
+          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
+            echo "zyqfork/TV 使用原生 signingConfigs + local.properties，跳过 build.gradle 注入"
           else
             signingConfigs='ICAgIHNpZ25pbmdDb25maWdzIHtcCiAgICAgICAgaWYgKHByb2plY3QuaGFzUHJvcGVydHkoIlJFTEVBU0VfU1RPUkVfRklMRSIpKSB7XAogICAgICAgICAgICBteUNvbmZpZyB7XAogICAgICAgICAgICAgICAgc3RvcmVGaWxlIGZpbGUoUkVMRUFTRV9TVE9SRV9GSUxFKVwKICAgICAgICAgICAgICAgIHN0b3JlUGFzc3dvcmQgUkVMRUFTRV9TVE9SRV9QQVNTV09SRFwKICAgICAgICAgICAgICAgIGtleUFsaWFzIFJFTEVBU0VfS0VZX0FMSUFTXAogICAgICAgICAgICAgICAga2V5UGFzc3dvcmQgUkVMRUFTRV9LRVlfUEFTU1dPUkRcCiAgICAgICAgICAgICAgICB2MVNpZ25pbmdFbmFibGVkID0gdHJ1ZVwKICAgICAgICAgICAgICAgIHYyU2lnbmluZ0VuYWJsZWQgPSB0cnVlXAogICAgICAgICAgICAgICAgZW5hYmxlVjNTaWduaW5nID0gdHJ1ZVwKICAgICAgICAgICAgICAgIGVuYWJsZVY0U2lnbmluZyA9IHRydWVcCiAgICAgICAgICAgIH1cCiAgICAgICAgfVwKICAgIH1cCg=='
             signingConfig='ICAgICAgICAgICAgaWYgKHByb2plY3QuaGFzUHJvcGVydHkoIlJFTEVBU0VfU1RPUkVfRklMRSIpKSB7XAogICAgICAgICAgICAgICAgc2lnbmluZ0NvbmZpZyA9IHNpZ25pbmdDb25maWdzLm15Q29uZmlnXAogICAgICAgICAgICB9XAo='
@@ -273,13 +280,39 @@ jobs:
         working-directory: TVBoxOSC
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          if [ "${{ matrix.userName }}" == "FongMi" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
+          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
             {
               echo "storeFile=./TVBoxOSC.jks"
               echo "keyAlias=TVBoxOSC"
               echo "storePassword=TVBoxOSC"
             } >> local.properties
           fi
+
+      - name: Cache source-built native libraries
+        if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches/fongmi-libmpv
+            ~/.gradle/caches/fongmi-ffmpeg-arm64-v8a
+            ~/.gradle/caches/fongmi-ffmpeg-armeabi-v7a
+            ~/.gradle/caches/fongmi-dav1d
+          key: native-${{ runner.os }}-${{ hashFiles('TVBoxOSC/media3compat/scripts/*.sh', 'TVBoxOSC/media3compat/build.gradle') }}
+          restore-keys: |
+            native-${{ runner.os }}-
+
+      - name: Cache Gradle dependencies
+        if: ${{ env.commit }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches/modules-2
+            ~/.gradle/caches/jars-3
+            ~/.gradle/caches/journal-1
+          key: gradle-deps-${{ matrix.repoName }}-${{ runner.os }}-${{ hashFiles('TVBoxOSC/**/*.gradle*', 'TVBoxOSC/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-deps-${{ matrix.repoName }}-${{ runner.os }}-
 
       - name: Build With Gradle
         if: ${{ env.commit }}
@@ -308,8 +341,8 @@ jobs:
             find "$dir" -type f -name "*.apk" -exec sh -c 'cp "$1" "apk/${{ matrix.userName }}-${{ matrix.repoName }}-${{ matrix.branchName }}-${1##*/}"' sh {} \;
           done
           
-          # 为 FongMi/TV 生成版本检测 JSON 文件
-          if [ "${{ matrix.userName }}" == "FongMi" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
+          # 为 zyqfork/TV 生成版本检测 JSON 文件
+          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
             echo "生成版本检测 JSON 文件..."
             # 读取版本信息
             VERSION_CODE=$(grep "versionCode" app/build.gradle | head -1 | sed 's/.*versionCode //' | sed 's/[^0-9]//g')
@@ -318,7 +351,7 @@ jobs:
             # 为每个 mode 生成一个 JSON 文件（leanback 和 mobile）
             for mode in leanback mobile; do
               # 检查是否存在该 mode 的 APK 文件
-              if ls apk/FongMi-TV-${{ matrix.branchName }}-${mode}-*.apk 1> /dev/null 2>&1; then
+              if ls apk/zyqfork-TV-${{ matrix.branchName }}-${mode}-*.apk 1> /dev/null 2>&1; then
                 json_file="apk/${mode}.json"
                 
                 # 生成 JSON 文件
@@ -424,7 +457,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy Update Files to gh-pages
-        if: ${{ env.commit && ((matrix.userName == 'FongMi' && matrix.repoName == 'TV') || (matrix.userName == 'zyqfork' && matrix.repoName == 'TVBox')) }}
+        if: ${{ env.commit && ((matrix.userName == 'zyqfork' && matrix.repoName == 'TV') || (matrix.userName == 'zyqfork' && matrix.repoName == 'TVBox')) }}
         run: |
           echo "部署更新文件到 gh-pages 分支..."
           git config --global user.name "github-actions[bot]"
@@ -446,18 +479,18 @@ jobs:
           APK_DIR="apk/${{ matrix.userName }}/${{ matrix.repoName }}/${{ matrix.branchName }}"
           mkdir -p "$APK_DIR"
           
-          # 处理 FongMi/TV 的文件
-          if [ "${{ matrix.userName }}" == "FongMi" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
+          # 处理 zyqfork/TV 的文件
+          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
             # 复制 JSON 文件
             cp -f ${{ github.workspace }}/TVBoxOSC/apk/*.json "$APK_DIR/" 2>/dev/null || true
             # 复制 APK 文件
-            cp -f ${{ github.workspace }}/TVBoxOSC/apk/FongMi-TV-${{ matrix.branchName }}-*.apk "$APK_DIR/" 2>/dev/null || true
+            cp -f ${{ github.workspace }}/TVBoxOSC/apk/zyqfork-TV-${{ matrix.branchName }}-*.apk "$APK_DIR/" 2>/dev/null || true
             # 重命名 APK 文件以匹配更新检测的命名格式
             cd "$APK_DIR"
-            for file in FongMi-TV-${{ matrix.branchName }}-*.apk; do
+            for file in zyqfork-TV-${{ matrix.branchName }}-*.apk; do
               if [ -f "$file" ]; then
-                # 提取 flavor 信息（例如：FongMi-TV-fongmi-leanback-arm64_v8a.apk -> leanback-arm64_v8a.apk）
-                newname=$(echo "$file" | sed 's/FongMi-TV-${{ matrix.branchName }}-//')
+                # 提取 flavor 信息（例如：zyqfork-TV-release-leanback-arm64_v8a.apk -> leanback-arm64_v8a.apk）
+                newname=$(echo "$file" | sed 's/zyqfork-TV-${{ matrix.branchName }}-//')
                 if [ "$file" != "$newname" ]; then
                   mv "$file" "$newname"
                   echo "重命名: $file -> $newname"
