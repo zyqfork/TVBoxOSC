@@ -10,9 +10,18 @@ on:
         required: false
         type: boolean
       donotpublish:
-        description: '构建后不提交发布新版'
+        description: '只构建，不发布 release、不更新 README'
         required: false
         type: boolean
+
+# 定时任务和手动触发不重叠，避免两轮同时推 README
+concurrency:
+  group: build-tvbox
+  cancel-in-progress: false
+
+permissions:
+  contents: write # 推 README、创建/删除 release
+  actions: write  # 清理旧的 workflow run
 
 jobs:
   build:
@@ -24,15 +33,15 @@ jobs:
           - userName: q215613905
             repoName: TVBoxOS
             branchName: main
-            jdkVersion: 17
           - userName: takagen99
             repoName: Box
             branchName: main
-            jdkVersion: 17
+          # fork=true：从源码构建（media3compat 要用 NDK 编 libmpv/ffmpeg/dav1d），
+          # 且自带 signingConfigs，不需要注入签名配置
           - userName: zyqfork
             repoName: TV
             branchName: release
-            jdkVersion: 17
+            fork: true
 
     steps:
       - name: Checkout
@@ -40,39 +49,43 @@ jobs:
         with:
           fetch-depth: 1
 
-
-      - name: Check New Commit
+      # 只有上游有新提交（且 README 里还没记录）才继续；否则后面所有步骤都会因为 env.commit 为空而跳过
+      - name: Resolve upstream commit
         run: |
           upStream=https://github.com/${{ matrix.userName }}/${{ matrix.repoName }}
-          echo "upStream=$upStream" >> $GITHUB_ENV
-          # 通过 GitHub API 查询分支最新 commit（/commits/{ref} 返回单个对象，取 .sha）
+          echo "upStream=$upStream" >> "$GITHUB_ENV"
+
           commit=$(curl -s \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/${{ matrix.userName }}/${{ matrix.repoName }}/commits/${{ matrix.branchName }}" \
             | jq -r '.sha // empty')
-          # 校验 commit 必须是 40 位 hash，否则视为无效
-          if [[ ! "${commit}" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "无法获取有效 commit，跳过构建。commit='${commit}'"
-            commit=""
-          fi
-          if [[ -n "${commit}" ]] && ( ! grep -q "$commit" README.md || [ "${{ inputs.rebuild }}" == "true" ] ); then
-            echo "commit=$commit" >> $GITHUB_ENV
-            echo "commitS=${commit:0:7}" >> $GITHUB_ENV
-          fi
-          echo "commit=$commit"
 
-      - name: Checkout Source Code
+          if [[ ! "${commit}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "拿不到有效 commit（'${commit}'），跳过本轮"
+            exit 0
+          fi
+          if grep -q "$commit" README.md && [ "${{ inputs.rebuild }}" != "true" ]; then
+            echo "commit ${commit:0:7} 已构建过，跳过本轮"
+            exit 0
+          fi
+
+          {
+            echo "commit=$commit"
+            echo "commitS=${commit:0:7}"
+          } >> "$GITHUB_ENV"
+
+      - name: Clone source
         if: ${{ env.commit }}
         run: |
-          git clone --recurse-submodules ${{ env.upStream }} TVBoxOSC
-          cd TVBoxOSC
-          git checkout ${{ env.commit }}
+          git clone --recurse-submodules "${{ env.upStream }}" src
+          cd src
+          git checkout "${{ env.commit }}"
           git submodule update --init --recursive
-          echo "tag=$(git log --date=format:'%Y%m%d-%H%M' --pretty=format:%cd -1 ${{ env.commit }})" >> $GITHUB_ENV
+          echo "tag=$(git log --date=format:'%Y%m%d-%H%M' --pretty=format:%cd -1 "${{ env.commit }}")" >> "$GITHUB_ENV"
 
-      - name: Cache Media3 Maven Local
-        if: ${{ env.commit }}
+      - name: Cache Media3 mavenLocal
+        if: ${{ env.commit && matrix.fork }}
         uses: actions/cache@v5
         with:
           path: ~/.m2/repository
@@ -80,8 +93,8 @@ jobs:
           restore-keys: |
             media3-maven-${{ runner.os }}-
 
-      - name: Build Media3 Fork to Maven Local
-        if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
+      - name: Publish Media3 to mavenLocal
+        if: ${{ env.commit && matrix.fork }}
         run: |
           chmod +x scripts/build-fongmi-media3.sh
           scripts/build-fongmi-media3.sh "${{ github.workspace }}"
@@ -92,71 +105,66 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Extra Modify
-        if: ${{ env.commit }}
-        working-directory: TVBoxOSC
+      # 各上游的 Chaquopy/Pyramid 需要把 buildPython 指到 CI 的 python3.10
+      - name: Patch upstream sources
+        if: ${{ env.commit && !matrix.fork }}
+        working-directory: src
         run: |
           set -euo pipefail
-          # zyqfork/TV 源码可直接构建，不做任何修改。
-          if [ "${{ matrix.userName }}" = "zyqfork" ] && [ "${{ matrix.repoName }}" = "TV" ]; then
-            echo "zyqfork/TV: no source patches"
-            exit 0
-          fi
+          python_path="$(which python3.10)"
 
-          # 其它上游：Chaquopy/Pyramid 需要把 buildPython 指到 CI 的 python3.10
-          # （否则 generate*PythonRequirements 失败）。
-          if [ "${{ matrix.userName }}" = "takagen99" ] && [ "${{ matrix.repoName }}" = "Box" ]; then
+          if [ "${{ matrix.repoName }}" = "Box" ]; then
             chmod +x ../scripts/patch-box-python.py
-            python3 ../scripts/patch-box-python.py "$(which python3.10)"
+            python3 ../scripts/patch-box-python.py "$python_path"
           fi
 
-          if [ "${{ matrix.userName }}" = "q215613905" ] && [ "${{ matrix.repoName }}" = "TVBoxOS" ]; then
-            PYTHON_PATH=$(which python3.10)
-            if [ -f "pyramid/build.gradle" ]; then
-              if grep -q "buildPython" pyramid/build.gradle; then
-                sed -i "s|buildPython(\".*\")|buildPython(\"$PYTHON_PATH\")|g" pyramid/build.gradle
-              else
-                sed -i "/python {/a\            buildPython \"$PYTHON_PATH\"" pyramid/build.gradle
-              fi
+          if [ "${{ matrix.repoName }}" = "TVBoxOS" ] && [ -f pyramid/build.gradle ]; then
+            if grep -q buildPython pyramid/build.gradle; then
+              sed -i "s|buildPython(\".*\")|buildPython(\"$python_path\")|g" pyramid/build.gradle
+            else
+              sed -i "/python {/a\            buildPython \"$python_path\"" pyramid/build.gradle
             fi
           fi
 
-      - name: Release Apk Sign
+      # zyqfork/TV 自带 signingConfigs + local.properties，其余上游注入一套
+      - name: Prepare signing
         if: ${{ env.commit }}
-        working-directory: TVBoxOSC
+        working-directory: src
         run: |
-          cp -f ${{ github.workspace }}/.github/workflows/TVBoxOSC.jks app/TVBoxOSC.jks
-          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
-            echo "zyqfork/TV 使用原生 signingConfigs + local.properties，跳过 build.gradle 注入"
-          else
-            signingConfigs='ICAgIHNpZ25pbmdDb25maWdzIHtcCiAgICAgICAgaWYgKHByb2plY3QuaGFzUHJvcGVydHkoIlJFTEVBU0VfU1RPUkVfRklMRSIpKSB7XAogICAgICAgICAgICBteUNvbmZpZyB7XAogICAgICAgICAgICAgICAgc3RvcmVGaWxlIGZpbGUoUkVMRUFTRV9TVE9SRV9GSUxFKVwKICAgICAgICAgICAgICAgIHN0b3JlUGFzc3dvcmQgUkVMRUFTRV9TVE9SRV9QQVNTV09SRFwKICAgICAgICAgICAgICAgIGtleUFsaWFzIFJFTEVBU0VfS0VZX0FMSUFTXAogICAgICAgICAgICAgICAga2V5UGFzc3dvcmQgUkVMRUFTRV9LRVlfUEFTU1dPUkRcCiAgICAgICAgICAgICAgICB2MVNpZ25pbmdFbmFibGVkID0gdHJ1ZVwKICAgICAgICAgICAgICAgIHYyU2lnbmluZ0VuYWJsZWQgPSB0cnVlXAogICAgICAgICAgICAgICAgZW5hYmxlVjNTaWduaW5nID0gdHJ1ZVwKICAgICAgICAgICAgICAgIGVuYWJsZVY0U2lnbmluZyA9IHRydWVcCiAgICAgICAgICAgIH1cCiAgICAgICAgfVwKICAgIH1cCg=='
-            signingConfig='ICAgICAgICAgICAgaWYgKHByb2plY3QuaGFzUHJvcGVydHkoIlJFTEVBU0VfU1RPUkVfRklMRSIpKSB7XAogICAgICAgICAgICAgICAgc2lnbmluZ0NvbmZpZyA9IHNpZ25pbmdDb25maWdzLm15Q29uZmlnXAogICAgICAgICAgICB9XAo='
-            signingConfigs="$(echo "$signingConfigs" |base64 -d )"
-            signingConfig="$(echo "$signingConfig" |base64 -d )"
-            sed -i -e "/defaultConfig {/i\\$signingConfigs " -e "/debug {/a\\$signingConfig " -e "/release {/a\\$signingConfig " app/build.gradle
-            sed -i '$a\RELEASE_STORE_FILE=./TVBoxOSC.jks'     ./gradle.properties
-            sed -i '$a\RELEASE_KEY_ALIAS=TVBoxOSC'            ./gradle.properties
-            sed -i '$a\RELEASE_STORE_PASSWORD=TVBoxOSC'       ./gradle.properties
-            sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC'         ./gradle.properties
+          cp -f "${{ github.workspace }}/.github/workflows/TVBoxOSC.jks" app/TVBoxOSC.jks
+
+          if [ -n "${{ matrix.fork }}" ]; then
+            echo "zyqfork/TV 使用原生 signingConfigs + local.properties，跳过注入"
+            exit 0
           fi
 
-      - name: Setup JDK
+          signingConfigs='ICAgIHNpZ25pbmdDb25maWdzIHtcCiAgICAgICAgaWYgKHByb2plY3QuaGFzUHJvcGVydHkoIlJFTEVBU0VfU1RPUkVfRklMRSIpKSB7XAogICAgICAgICAgICBteUNvbmZpZyB7XAogICAgICAgICAgICAgICAgc3RvcmVGaWxlIGZpbGUoUkVMRUFTRV9TVE9SRV9GSUxFKVwKICAgICAgICAgICAgICAgIHN0b3JlUGFzc3dvcmQgUkVMRUFTRV9TVE9SRV9QQVNTV09SRFwKICAgICAgICAgICAgICAgIGtleUFsaWFzIFJFTEVBU0VfS0VZX0FMSUFTXAogICAgICAgICAgICAgICAga2V5UGFzc3dvcmQgUkVMRUFTRV9LRVlfUEFTU1dPUkRcCiAgICAgICAgICAgICAgICB2MVNpZ25pbmdFbmFibGVkID0gdHJ1ZVwKICAgICAgICAgICAgICAgIHYyU2lnbmluZ0VuYWJsZWQgPSB0cnVlXAogICAgICAgICAgICAgICAgZW5hYmxlVjNTaWduaW5nID0gdHJ1ZVwKICAgICAgICAgICAgICAgIGVuYWJsZVY0U2lnbmluZyA9IHRydWVcCiAgICAgICAgICAgIH1cCiAgICAgICAgfVwKICAgIH1cCg=='
+          signingConfig='ICAgICAgICAgICAgaWYgKHByb2plY3QuaGFzUHJvcGVydHkoIlJFTEVBU0VfU1RPUkVfRklMRSIpKSB7XAogICAgICAgICAgICAgICAgc2lnbmluZ0NvbmZpZyA9IHNpZ25pbmdDb25maWdzLm15Q29uZmlnXAogICAgICAgICAgICB9XAo='
+          signingConfigs="$(echo "$signingConfigs" | base64 -d)"
+          signingConfig="$(echo "$signingConfig" | base64 -d)"
+          sed -i -e "/defaultConfig {/i\\$signingConfigs " -e "/debug {/a\\$signingConfig " -e "/release {/a\\$signingConfig " app/build.gradle
+          sed -i '$a\RELEASE_STORE_FILE=./TVBoxOSC.jks' ./gradle.properties
+          sed -i '$a\RELEASE_KEY_ALIAS=TVBoxOSC' ./gradle.properties
+          sed -i '$a\RELEASE_STORE_PASSWORD=TVBoxOSC' ./gradle.properties
+          sed -i '$a\RELEASE_KEY_PASSWORD=TVBoxOSC' ./gradle.properties
+
+      - name: Setup JDK 17
         if: ${{ env.commit }}
         uses: actions/setup-java@v5
         with:
-          distribution: 'temurin'
-          java-version: ${{ matrix.jdkVersion }}
+          distribution: temurin
+          java-version: '17'
 
       - name: Setup Gradle
         if: ${{ env.commit }}
         uses: gradle/actions/setup-gradle@v5
 
-      - name: Create local.properties
+      - name: Write local.properties
         if: ${{ env.commit }}
-        working-directory: TVBoxOSC
+        working-directory: src
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
+          if [ -n "${{ matrix.fork }}" ]; then
             {
               echo "storeFile=./TVBoxOSC.jks"
               echo "keyAlias=TVBoxOSC"
@@ -164,8 +172,8 @@ jobs:
             } >> local.properties
           fi
 
-      - name: Cache source-built native libraries
-        if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
+      - name: Cache native libraries
+        if: ${{ env.commit && matrix.fork }}
         uses: actions/cache@v5
         with:
           path: |
@@ -173,7 +181,7 @@ jobs:
             ~/.gradle/caches/fongmi-ffmpeg-arm64-v8a
             ~/.gradle/caches/fongmi-ffmpeg-armeabi-v7a
             ~/.gradle/caches/fongmi-dav1d
-          key: native-${{ runner.os }}-${{ hashFiles('TVBoxOSC/media3compat/scripts/*.sh', 'TVBoxOSC/media3compat/build.gradle') }}
+          key: native-${{ runner.os }}-${{ hashFiles('src/media3compat/scripts/*.sh', 'src/media3compat/build.gradle') }}
           restore-keys: |
             native-${{ runner.os }}-
 
@@ -186,29 +194,28 @@ jobs:
             ~/.gradle/caches/modules-2
             ~/.gradle/caches/jars-3
             ~/.gradle/caches/journal-1
-          key: gradle-deps-${{ matrix.repoName }}-${{ runner.os }}-${{ hashFiles('TVBoxOSC/**/*.gradle*', 'TVBoxOSC/**/gradle-wrapper.properties') }}
+          key: gradle-deps-${{ matrix.repoName }}-${{ runner.os }}-${{ hashFiles('src/**/*.gradle*', 'src/**/gradle-wrapper.properties') }}
           restore-keys: |
             gradle-deps-${{ matrix.repoName }}-${{ runner.os }}-
 
       - name: Setup Android SDK
-        if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
+        if: ${{ env.commit && matrix.fork }}
         uses: android-actions/setup-android@v4
         with:
           packages: platform-tools
 
-      - name: Install Android NDK toolchains
-        if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
+      - name: Install NDK toolchains
+        if: ${{ env.commit && matrix.fork }}
         run: |
-          # media3compat 源码构建 dav1d/mpv/ffmpeg，需要 NDK 26.1/29 + cmake
+          # media3compat 源码构建 dav1d/mpv/ffmpeg 需要 NDK 26.1/29 + cmake
           sdkmanager "ndk;26.1.10909125" "ndk;29.0.14206865" "cmake;3.22.1"
-          docker version
 
-      - name: Build With Gradle
+      - name: Build with Gradle
         if: ${{ env.commit }}
-        working-directory: TVBoxOSC
+        working-directory: src
         run: |
           chmod +x gradlew
-          # 某些上游仓库 gradle.properties 末尾没有换行，直接 >> 可能与最后一行粘连
+          # 有些上游的 gradle.properties 末尾没有换行，直接 >> 会和最后一行粘连
           printf '\n' >> gradle.properties
           for prop in "org.gradle.daemon=true" "org.gradle.parallel=true" "org.gradle.caching=true"; do
             key="${prop%%=*}"
@@ -218,9 +225,10 @@ jobs:
               echo "${prop}" >> gradle.properties
             fi
           done
-          # 移植 zyqfork/TV 自身 CI：按 ABI 分开编，FONGMI_NATIVE_ABIS 只含当前 ABI，
-          # 避免一次性 assemblerelease 触发 mergeJavaRes 压缩信息错误。
-          if [ "${{ matrix.userName }}" = "zyqfork" ] && [ "${{ matrix.repoName }}" = "TV" ]; then
+
+          if [ -n "${{ matrix.fork }}" ]; then
+            # media3compat 按 FONGMI_NATIVE_ABIS 决定给哪些 ABI 编原生库；
+            # 按 ABI 分两次编，一次 assemblerelease 会触发 mergeJavaRes 压缩信息错误
             FONGMI_NATIVE_ABIS=arm64-v8a ./gradlew \
               assembleLeanbackArm64_v8aRelease assembleMobileArm64_v8aRelease \
               --build-cache --parallel --daemon --stacktrace
@@ -231,180 +239,86 @@ jobs:
             ./gradlew assemblerelease --build-cache --parallel --daemon --stacktrace
           fi
 
-      - name: Prepare App
+      # 收集 APK 并生成 release 说明。APK 只发到 GitHub Release，不再往 gh-pages 部署。
+      - name: Prepare release assets
         if: ${{ env.commit }}
-        working-directory: TVBoxOSC
+        working-directory: src
         run: |
-          rm -rf apk/
-          mkdir -p apk/
-          find ~ -type d -iname "release" -print0 | while IFS= read -r -d '' dir; do
-            find "$dir" -type f -name "*.apk" -exec sh -c 'cp "$1" "apk/${{ matrix.userName }}-${{ matrix.repoName }}-${{ matrix.branchName }}-${1##*/}"' sh {} \;
-          done
-          
-          # 为 zyqfork/TV 生成版本检测 JSON 文件
-          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
-            echo "生成版本检测 JSON 文件..."
-            # 读取版本信息：zyqfork/TV 把 VERSION_CODE/VERSION_NAME 放在 gradle.properties，
-            # 其它上游写在 app/build.gradle（versionName "x.y.z"）。两种都要兼容——只读 app/build.gradle
-            # 时拿到的是 `versionName VERSION_NAME`，会产出 `"code": ` 这种**非法 JSON**。
-            VERSION_CODE=$(sed -n 's/^VERSION_CODE=\([0-9][0-9]*\).*/\1/p' gradle.properties 2>/dev/null | head -1)
-            VERSION_NAME=$(sed -n 's/^VERSION_NAME=\(.*\)/\1/p' gradle.properties 2>/dev/null | head -1 | tr -d '\r')
-            [ -n "$VERSION_CODE" ] || VERSION_CODE=$(grep -m1 "versionCode" app/build.gradle | sed 's/.*versionCode //' | sed 's/[^0-9]//g')
-            [ -n "$VERSION_NAME" ] || VERSION_NAME=$(grep -m1 "versionName" app/build.gradle | sed 's/.*versionName "//' | sed 's/".*//')
-            # 兜底，保证 JSON 合法
-            [ -n "$VERSION_CODE" ] || VERSION_CODE=0
-            [ -n "$VERSION_NAME" ] || VERSION_NAME=unknown
-            
-            # 为每个 mode 生成一个 JSON 文件（leanback 和 mobile）
-            for mode in leanback mobile; do
-              # 检查是否存在该 mode 的 APK 文件
-              if ls apk/zyqfork-TV-${{ matrix.branchName }}-${mode}-*.apk 1> /dev/null 2>&1; then
-                json_file="apk/${mode}.json"
-                
-                # 生成 JSON 文件
-                printf '{\n  "name": "%s",\n  "desc": "版本 %s\\n构建时间: %s\\nCommit: %s",\n  "code": %s\n}' \
-                  "${VERSION_NAME}" "${VERSION_NAME}" "${{ env.tag }}" "${{ env.commitS }}" "${VERSION_CODE}" > "$json_file"
-                echo "已生成: $json_file (version: $VERSION_NAME, code: $VERSION_CODE)"
-              fi
-            done
-          fi
-          
+          set -euo pipefail
+          rm -rf apk && mkdir -p apk
 
-      - name: Release Note
-        if: ${{ env.commit }}
-        working-directory: TVBoxOSC
-        run: |
-          # 尝试获取上一次的 commit hash
-          lastCommit=$(grep "\[${{ matrix.userName }}\/${{ matrix.repoName }}\]" ${{ github.workspace }}/README.md | grep "${{ matrix.branchName }}" | grep -o '[a-z0-9]\{40\}')
-          
-          # 如果没有找到 commit hash,设置一个默认值以避免错误
-          if [ -z "$lastCommit" ]; then
-            echo "Warning: Could not find last commit hash for ${{ matrix.userName }}/${{ matrix.repoName }}/${{ matrix.branchName }}"
-            lastCommit=${{ env.commit }}
-          fi
-          
-          export LESSCHARSET=utf-8
-          # 确保 apk 目录存在
-          mkdir -p apk/
-          echo -e "Credit: [${{ matrix.userName }}](${{ env.upStream }})\nCommit: ${{ env.commit }}\nChangelog:\n\`\`\`" > apk/${{ matrix.userName }}-Release.log
-          
-          if [ "${{ env.commit }}" == "${lastCommit}" ]; then
-            git log --pretty=format:%B ${{ env.commitS }} -1 | sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' | cat -n | sort -k2,2 -k1,1n | uniq -f1 | sort -k1,1n | cut -f2- >> apk/${{ matrix.userName }}-Release.log
-          else
-            git log --pretty=format:%B ${{ env.commitS }}...${lastCommit:0:7} | sed -e "s# \{2,\}#\n#g" -e "/^Merge \(pull\|branch\|remote\)/d" -e '/^$/d' | cat -n | sort -k2,2 -k1,1n | uniq -f1 | sort -k1,1n | cut -f2- >> apk/${{ matrix.userName }}-Release.log
-          fi
-          echo -e '```' >> apk/${{ matrix.userName }}-Release.log
-          
-          # 确保日志文件存在并且有内容
-          if [ ! -s "apk/${{ matrix.userName }}-Release.log" ]; then
-            echo "No changes found" >> apk/${{ matrix.userName }}-Release.log
-          fi
+          # 各上游的输出路径不同（有的 flavor 就叫 *_release），统一用 find 兜住
+          while IFS= read -r -d '' file; do
+            cp "$file" "apk/${{ matrix.userName }}-${{ matrix.repoName }}-${{ matrix.branchName }}-${file##*/}"
+          done < <(find . -type d -iname release -exec find {} -type f -name '*.apk' -print0 \;)
 
-      - name: Upload App To Artifact
-        uses: actions/upload-artifact@v5
-        if: ${{ env.commit }}
-        with:
-          name: ${{ matrix.userName }}-${{ matrix.repoName }}-${{ matrix.branchName }}
-          path: |
-            TVBoxOSC/apk/*
+          # release 说明 = 相对上次已构建提交的提交列表
+          last=$(grep -F "[${{ matrix.userName }}/${{ matrix.repoName }}]" ../README.md \
+            | grep -F "${{ matrix.branchName }}" | grep -o '[0-9a-f]\{40\}' | head -1 || true)
+          git rev-parse --verify "${last:-none}" >/dev/null 2>&1 || last="${{ env.commit }}"
 
-      - name: Whether Or Not to Publish
-        if: ${{ inputs.donotpublish && env.commit }}
-        run: |
-          echo "commit=" >> $GITHUB_ENV
+          {
+            echo "Credit: [${{ matrix.userName }}](${{ env.upStream }})"
+            echo "Commit: ${{ env.commit }}"
+            echo
+            echo '```'
+            if [ "$last" = "${{ env.commit }}" ]; then
+              git log -1 --pretty=format:'- %s' "${{ env.commitS }}"
+            else
+              git log --no-merges --pretty=format:'- %s' "${last:0:7}..${{ env.commitS }}"
+            fi
+            echo
+            echo '```'
+          } > "apk/${{ matrix.userName }}-Release.log"
 
-      - name: Release and Upload Assets
+          echo "=== assets ==="
+          ls -l apk/
+          echo "=== changelog ==="
+          cat "apk/${{ matrix.userName }}-Release.log"
+
+      - name: Publish release
+        if: ${{ env.commit && !inputs.donotpublish }}
         uses: ncipollo/release-action@v1
-        if: ${{ env.commit }}
         with:
           name: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}_${{ env.tag }}
           tag: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}_${{ env.tag }}
-          bodyFile: TVBoxOSC/apk/${{ matrix.userName }}-Release.log
+          bodyFile: src/apk/${{ matrix.userName }}-Release.log
           allowUpdates: true
           removeArtifacts: true
-          artifacts: |
-            TVBoxOSC/apk/*.apk
+          artifacts: src/apk/*.apk
 
-      - uses: dev-drprasad/delete-older-releases@v0.3.4
-        with:
-          keep_latest: 5
-          delete_tags: true
-          delete_tag_pattern: ${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}.*
+      # 只处理本目标自己的 tag，保留最新 5 个，其余连 tag 一起删
+      - name: Prune old releases
+        if: ${{ env.commit && !inputs.donotpublish }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Deploy Update Files to gh-pages
-        if: ${{ env.commit && matrix.userName == 'zyqfork' && matrix.repoName == 'TV' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "部署更新文件到 gh-pages 分支..."
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
-          # 必须克隆到工作区之外。放在工作区里（旧写法 gh-pages-repo）会被外层仓库
-          # 当成子模块（master 上残留过一条 gh-pages-repo gitlink），工作区因此变脏，
-          # 使后面 "Push to master" 的 git pull --rebase 报 "You have unstaged changes" 而失败。
-          GHP_DIR="${RUNNER_TEMP:-/tmp}/gh-pages-repo"
-          rm -rf "$GHP_DIR"
-          git clone --depth=1 --branch=gh-pages "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "$GHP_DIR" 2>/dev/null || git clone --depth=1 "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "$GHP_DIR"
-          cd "$GHP_DIR"
-          
-          # 如果 gh-pages 分支不存在，创建它
-          if ! git rev-parse --verify gh-pages >/dev/null 2>&1; then
-            git checkout --orphan gh-pages
-            git rm -rf . 2>/dev/null || true
-          else
-            git checkout gh-pages 2>/dev/null || git checkout -b gh-pages
-          fi
-          
-          # 创建按仓库名和分支名组织的目录结构
-          APK_DIR="apk/${{ matrix.userName }}/${{ matrix.repoName }}/${{ matrix.branchName }}"
-          mkdir -p "$APK_DIR"
-          
-          # 处理 zyqfork/TV 的文件
-          if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
-            # 复制 JSON 文件
-            cp -f ${{ github.workspace }}/TVBoxOSC/apk/*.json "$APK_DIR/" 2>/dev/null || true
-            # 复制 APK 文件
-            cp -f ${{ github.workspace }}/TVBoxOSC/apk/zyqfork-TV-${{ matrix.branchName }}-*.apk "$APK_DIR/" 2>/dev/null || true
-            # 重命名 APK 文件以匹配更新检测的命名格式
-            cd "$APK_DIR"
-            for file in zyqfork-TV-${{ matrix.branchName }}-*.apk; do
-              if [ -f "$file" ]; then
-                # 提取 flavor 信息（例如：zyqfork-TV-release-leanback-arm64_v8a.apk -> leanback-arm64_v8a.apk）
-                newname=$(echo "$file" | sed 's/zyqfork-TV-${{ matrix.branchName }}-//')
-                if [ "$file" != "$newname" ]; then
-                  mv "$file" "$newname"
-                  echo "重命名: $file -> $newname"
-                fi
-              fi
-            done
-            cd "$GHP_DIR"
-          fi
-          
-          # 提交更改
-          git add -A
-          if git diff --staged --quiet; then
-            echo "没有更改需要提交"
-          else
-            git commit -m "Update ${{ matrix.userName }}/${{ matrix.repoName }}/${{ matrix.branchName }} version files - ${{ env.tag }}"
-            git push origin gh-pages
-            echo "已更新 gh-pages 分支: $APK_DIR"
-          fi
+          entries=$(gh api "repos/${{ github.repository }}/releases?per_page=100" \
+            --jq '.[] | select(.tag_name | startswith("${{ matrix.userName }}_${{ matrix.repoName }}_${{ matrix.branchName }}_")) | "\(.id) \(.tag_name)"')
 
-      - name: Push to master
-        if: ${{ env.commit }}
-        continue-on-error: true
+          kept=0
+          while read -r id tag; do
+            [ -n "${id:-}" ] || continue
+            kept=$((kept + 1))
+            [ "$kept" -le 5 ] && continue
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id" >/dev/null
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" >/dev/null
+            echo "已删除旧 release: $tag"
+          done <<< "$entries"
+          echo "共 $kept 个 release，保留最新 5 个"
+
+      - name: Record build in README
+        if: ${{ env.commit && !inputs.donotpublish }}
         run: |
-          rm -rf TVBoxOSC gh-pages-repo
+          rm -rf src
           sed -i '/url =/d' ./.git/config
           git config --local user.name "github-actions[bot]"
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url --add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
 
-          # 获取当前时间
           current_time=$(date '+%Y-%m-%d %H:%M:%S')
 
-          # matrix 的三个任务会并发推同一个分支：必须带重试，且不能用 -f（-f 会覆盖其他任务的更新）
+          # 三个 matrix 任务会并发推同一分支：必须重试，且不能用 -f（-f 会覆盖其他任务的更新）
           for attempt in 1 2 3 4 5; do
             if ! git pull --rebase --autostash origin master; then
               git rebase --abort 2>/dev/null || true
@@ -413,16 +327,12 @@ jobs:
               continue
             fi
 
-            # 更新对应仓库的 commit hash 和构建时间
-            sed -i "/\[${{ matrix.userName }}\/${{ matrix.repoName }}\].*${{ matrix.branchName }}/{
-              s/[a-z0-9]\{40\}/${{ env.commit }}/
-              s/| [^|]* |$/| $current_time |/
-            }" README.md
+            python3 scripts/update-readme.py README.md \
+              "${{ matrix.userName }}/${{ matrix.repoName }}" \
+              "${{ matrix.branchName }}" \
+              "${{ env.commit }}" \
+              "$current_time"
 
-            # 更新底部的更新时间
-            sed -i "s/update at .*/update at ${current_time}/" README.md
-
-            # 只提交 README，避免把 apk/、TVBoxOSC/ 之类的构建产物误提交进仓库
             git add README.md
             git commit -m "Update ${{ matrix.userName }}/${{ matrix.repoName }} to ${{ env.commit }} at ${current_time}" || true
 
@@ -433,16 +343,12 @@ jobs:
             echo "第 ${attempt} 次 push 失败，重试"
             sleep $((attempt * 5))
           done
-          echo "::error::Push to master 重试 5 次后仍失败，README 记录未更新"
+          echo "::error::README 更新重试 5 次后仍失败"
 
   clean:
     needs: build
     runs-on: ubuntu-latest
     if: always()
-    # 删除 workflow run 需要 actions: write，显式声明以免依赖仓库默认权限
-    permissions:
-      actions: write
-      contents: read
     steps:
       - name: Delete old workflow runs
         continue-on-error: true
@@ -454,6 +360,6 @@ jobs:
             --jq "[.workflow_runs[] | select(.created_at < \"$cutoff\") | .id] | .[3:][]")
           count=0
           for id in $ids; do
-            gh api -X DELETE "repos/${{ github.repository }}/actions/runs/$id" 2>/dev/null && count=$((count+1))
+            gh api -X DELETE "repos/${{ github.repository }}/actions/runs/$id" >/dev/null && count=$((count + 1))
           done
-          echo "deleted $count old workflow runs"
+          echo "已删除 $count 个旧运行"
