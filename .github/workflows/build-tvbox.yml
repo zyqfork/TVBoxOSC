@@ -411,8 +411,12 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Delete workflow runs
-        uses: GitRML/delete-workflow-runs@v0.2.0
-        with:
-          retain_days: 1
-          keep_minimum_runs: 3
+      - name: Delete old workflow runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/actions/runs --paginate \
+            --jq '.workflow_runs[] | select(.created_at < (now - 86400 | todate)) | .id' \
+            | head -n 20 \
+            | xargs -r -I{} gh api -X DELETE repos/${{ github.repository }}/actions/runs/{}
+          echo "cleanup done"
