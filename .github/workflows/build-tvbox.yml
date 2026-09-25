@@ -244,9 +244,16 @@ jobs:
           # 为 zyqfork/TV 生成版本检测 JSON 文件
           if [ "${{ matrix.userName }}" == "zyqfork" ] && [ "${{ matrix.repoName }}" == "TV" ]; then
             echo "生成版本检测 JSON 文件..."
-            # 读取版本信息
-            VERSION_CODE=$(grep "versionCode" app/build.gradle | head -1 | sed 's/.*versionCode //' | sed 's/[^0-9]//g')
-            VERSION_NAME=$(grep "versionName" app/build.gradle | head -1 | sed 's/.*versionName "//' | sed 's/".*//')
+            # 读取版本信息：zyqfork/TV 把 VERSION_CODE/VERSION_NAME 放在 gradle.properties，
+            # 其它上游写在 app/build.gradle（versionName "x.y.z"）。两种都要兼容——只读 app/build.gradle
+            # 时拿到的是 `versionName VERSION_NAME`，会产出 `"code": ` 这种**非法 JSON**。
+            VERSION_CODE=$(sed -n 's/^VERSION_CODE=\([0-9][0-9]*\).*/\1/p' gradle.properties 2>/dev/null | head -1)
+            VERSION_NAME=$(sed -n 's/^VERSION_NAME=\(.*\)/\1/p' gradle.properties 2>/dev/null | head -1 | tr -d '\r')
+            [ -n "$VERSION_CODE" ] || VERSION_CODE=$(grep -m1 "versionCode" app/build.gradle | sed 's/.*versionCode //' | sed 's/[^0-9]//g')
+            [ -n "$VERSION_NAME" ] || VERSION_NAME=$(grep -m1 "versionName" app/build.gradle | sed 's/.*versionName "//' | sed 's/".*//')
+            # 兜底，保证 JSON 合法
+            [ -n "$VERSION_CODE" ] || VERSION_CODE=0
+            [ -n "$VERSION_NAME" ] || VERSION_NAME=unknown
             
             # 为每个 mode 生成一个 JSON 文件（leanback 和 mobile）
             for mode in leanback mobile; do
