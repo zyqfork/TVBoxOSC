@@ -10,11 +10,16 @@ for p in [Path("pyramid/build.gradle"), Path("chaquo/build.gradle")]:
     if not p.is_file():
         continue
     text = p.read_text(encoding="utf-8")
-    if "buildPython" in text:
-        text = re.sub(r'buildPython\\(".*?"\\)', f'buildPython("{py}")', text)
-    else:
+    # 兼容 buildPython("...") / buildPython "..." / buildPython '...'
+    text, n = re.subn(
+        r"""buildPython\s*\(?\s*(['"])[^'"]*\1\s*\)?""",
+        f'buildPython("{py}")',
+        text,
+    )
+    if n == 0:
         text = text.replace("python {", f'python {{\n            buildPython "{py}"', 1)
     p.write_text(text, encoding="utf-8")
+    print(f"patched {p} ({n} replacements)")
 
 for base in (Path("pyramid"), Path("chaquo")):
     if not base.is_dir():
