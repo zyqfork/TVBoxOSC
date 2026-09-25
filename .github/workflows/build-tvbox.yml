@@ -410,13 +410,18 @@ jobs:
   clean:
     needs: build
     runs-on: ubuntu-latest
+    if: always()
     steps:
       - name: Delete old workflow runs
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh api repos/${{ github.repository }}/actions/runs --paginate \
-            --jq '.workflow_runs[] | select(.created_at < (now - 86400 | todate)) | .id' \
-            | head -n 20 \
-            | xargs -r -I{} gh api -X DELETE repos/${{ github.repository }}/actions/runs/{}
-          echo "cleanup done"
+          cutoff=$(date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%SZ)
+          ids=$(gh api "repos/${{ github.repository }}/actions/runs?per_page=100" \
+            --jq "[.workflow_runs[] | select(.created_at < \"$cutoff\") | .id] | .[3:][]")
+          count=0
+          for id in $ids; do
+            gh api -X DELETE "repos/${{ github.repository }}/actions/runs/$id" 2>/dev/null && count=$((count+1))
+          done
+          echo "deleted $count old workflow runs"
