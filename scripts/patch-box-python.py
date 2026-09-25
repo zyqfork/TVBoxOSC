@@ -31,8 +31,14 @@ for base in (Path("pyramid"), Path("chaquo")):
             text = p.read_text(encoding="utf-8")
         except Exception:
             continue
-        new = re.sub(r'pyquery[>=~!][^\s"\']*', 'pyquery==1.4.3', text)
-        new = re.sub(r'"pyquery[>=~!][^"]*"', '"pyquery==1.4.3"', new)
+        # 覆盖 install "pyquery" / install "pyquery>=..." / "pyquery==..." 等写法
+        new = re.sub(
+            r"""(["'])pyquery(?:[>=~!].*?)?\1""",
+            r'\1pyquery==1.4.3\1',
+            text,
+        )
+        # 裸写（无引号）：pyquery / pyquery>=1.4 等
+        new = re.sub(r'\bpyquery(?:[>=~!][^\s"\']*)?\b', 'pyquery==1.4.3', new)
         if new != text:
             p.write_text(new, encoding="utf-8")
             print("pinned pyquery in", p)
