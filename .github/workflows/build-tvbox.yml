@@ -333,9 +333,13 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           
-          # 克隆仓库并切换到 gh-pages 分支
-          git clone --depth=1 --branch=gh-pages "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages-repo 2>/dev/null || git clone --depth=1 "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages-repo
-          cd gh-pages-repo
+          # 必须克隆到工作区之外。放在工作区里（旧写法 gh-pages-repo）会被外层仓库
+          # 当成子模块（master 上残留过一条 gh-pages-repo gitlink），工作区因此变脏，
+          # 使后面 "Push to master" 的 git pull --rebase 报 "You have unstaged changes" 而失败。
+          GHP_DIR="${RUNNER_TEMP:-/tmp}/gh-pages-repo"
+          rm -rf "$GHP_DIR"
+          git clone --depth=1 --branch=gh-pages "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "$GHP_DIR" 2>/dev/null || git clone --depth=1 "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "$GHP_DIR"
+          cd "$GHP_DIR"
           
           # 如果 gh-pages 分支不存在，创建它
           if ! git rev-parse --verify gh-pages >/dev/null 2>&1; then
@@ -367,7 +371,7 @@ jobs:
                 fi
               fi
             done
-            cd ../..
+            cd "$GHP_DIR"
           fi
           
           # 提交更改
@@ -384,33 +388,54 @@ jobs:
         if: ${{ env.commit }}
         continue-on-error: true
         run: |
-          rm -rf TVBoxOSC
+          rm -rf TVBoxOSC gh-pages-repo
           sed -i '/url =/d' ./.git/config
           git config --local user.name "github-actions[bot]"
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git remote set-url --add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
-          git pull --rebase
-          
+
           # 获取当前时间
           current_time=$(date '+%Y-%m-%d %H:%M:%S')
-          
-          # 更新对应仓库的 commit hash 和构建时间
-          sed -i "/\[${{ matrix.userName }}\/${{ matrix.repoName }}\].*${{ matrix.branchName }}/{
-            s/[a-z0-9]\{40\}/${{ env.commit }}/
-            s/| [^|]* |$/| $current_time |/
-          }" README.md
-          
-          # 更新底部的更新时间
-          sed -i "s/update at .*/update at ${current_time}/" README.md
-          
-          git add --all
-          git commit -m "Update ${{ matrix.userName }}/${{ matrix.repoName }} to ${{ env.commit }} at ${current_time}"
-          git push -u -f origin master
+
+          # matrix 的三个任务会并发推同一个分支：必须带重试，且不能用 -f（-f 会覆盖其他任务的更新）
+          for attempt in 1 2 3 4 5; do
+            if ! git pull --rebase --autostash origin master; then
+              git rebase --abort 2>/dev/null || true
+              echo "第 ${attempt} 次 pull --rebase 失败，重试"
+              sleep $((attempt * 5))
+              continue
+            fi
+
+            # 更新对应仓库的 commit hash 和构建时间
+            sed -i "/\[${{ matrix.userName }}\/${{ matrix.repoName }}\].*${{ matrix.branchName }}/{
+              s/[a-z0-9]\{40\}/${{ env.commit }}/
+              s/| [^|]* |$/| $current_time |/
+            }" README.md
+
+            # 更新底部的更新时间
+            sed -i "s/update at .*/update at ${current_time}/" README.md
+
+            # 只提交 README，避免把 apk/、TVBoxOSC/ 之类的构建产物误提交进仓库
+            git add README.md
+            git commit -m "Update ${{ matrix.userName }}/${{ matrix.repoName }} to ${{ env.commit }} at ${current_time}" || true
+
+            if git push origin master; then
+              echo "已推送到 master（第 ${attempt} 次尝试）"
+              exit 0
+            fi
+            echo "第 ${attempt} 次 push 失败，重试"
+            sleep $((attempt * 5))
+          done
+          echo "::error::Push to master 重试 5 次后仍失败，README 记录未更新"
 
   clean:
     needs: build
     runs-on: ubuntu-latest
     if: always()
+    # 删除 workflow run 需要 actions: write，显式声明以免依赖仓库默认权限
+    permissions:
+      actions: write
+      contents: read
     steps:
       - name: Delete old workflow runs
         continue-on-error: true
