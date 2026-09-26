@@ -23,6 +23,16 @@ permissions:
   contents: write # 推 README、创建/删除 release
   actions: write  # 清理旧的 workflow run
 
+env:
+  # 现役目标的 tag 前缀。目标一旦从这里消失，它的历史 release 就再也不会被
+  # 各 build 任务自己的 prune 碰到（那些只认自己的前缀），会永久占着体积。
+  # cleanup 任务靠这份白名单回收这类失联 release。
+  # !! 增删 matrix 目标时必须同步这里，否则新目标的 release 会在下一轮被回收 !!
+  RELEASE_PREFIXES: |
+    q215613905_TVBoxOS_main_
+    takagen99_Box_main_
+    zyqfork_TV_release_
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -42,6 +52,7 @@ jobs:
             repoName: TV
             branchName: release
             fork: true
+          # 注意：改动上面三个目标后，记得同步顶层 env.RELEASE_PREFIXES
 
     steps:
       - name: Checkout
@@ -260,6 +271,9 @@ jobs:
           {
             echo "Credit: [${{ matrix.userName }}](${{ env.upStream }})"
             echo "Commit: ${{ env.commit }}"
+            # tag 里的时间是上游 commit 的提交时间，同一 commit 重跑会就地覆盖同一
+            # release，所以 tag 看不出构建时间，这里补一行真实的构建时间
+            echo "Built at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
             echo
             echo '```'
             if [ "$last" = "${{ env.commit }}" ]; then
@@ -271,10 +285,15 @@ jobs:
             echo '```'
           } > "apk/${{ matrix.userName }}-Release.log"
 
+          # 每个 APK 的校验和，方便下载后核对完整性（sha256sum -c SHA256SUMS）
+          ( cd apk && sha256sum ./*.apk > SHA256SUMS )
+
           echo "=== assets ==="
           ls -l apk/
           echo "=== changelog ==="
           cat "apk/${{ matrix.userName }}-Release.log"
+          echo "=== SHA256SUMS ==="
+          cat apk/SHA256SUMS
 
       - name: Publish release
         if: ${{ env.commit && !inputs.donotpublish }}
@@ -285,9 +304,12 @@ jobs:
           bodyFile: src/apk/${{ matrix.userName }}-Release.log
           allowUpdates: true
           removeArtifacts: true
-          artifacts: src/apk/*.apk
+          artifacts: |
+            src/apk/*.apk
+            src/apk/SHA256SUMS
 
-      # 只处理本目标自己的 tag，保留最新 5 个，其余连 tag 一起删
+      # 只处理本目标自己的 tag，保留最新 2 个（当前 + 上一个），其余连 tag 一起删。
+      # 这些 release 只是"某上游某次构建"的镜像，不是版本发布，留 2 个足够回滚。
       - name: Prune old releases
         if: ${{ env.commit && !inputs.donotpublish }}
         env:
@@ -300,12 +322,12 @@ jobs:
           while read -r id tag; do
             [ -n "${id:-}" ] || continue
             kept=$((kept + 1))
-            [ "$kept" -le 5 ] && continue
+            [ "$kept" -le 2 ] && continue
             gh api -X DELETE "repos/${{ github.repository }}/releases/$id" >/dev/null
             gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" >/dev/null
             echo "已删除旧 release: $tag"
           done <<< "$entries"
-          echo "共 $kept 个 release，保留最新 5 个"
+          echo "共 $kept 个 release，保留最新 2 个"
 
       - name: Record build in README
         if: ${{ env.commit && !inputs.donotpublish }}
@@ -344,6 +366,42 @@ jobs:
             sleep $((attempt * 5))
           done
           echo "::error::README 更新重试 5 次后仍失败"
+
+  # build 里的 prune 只认自己的前缀，目标一旦从 matrix 移除，它的历史 release 就永久
+  # 失联——不会被更新，也不会被删。这个任务按白名单回收这类孤儿。
+  # 与 build 串行（needs），避免和正在发布的 release 抢；即使 build 全跳过/失败也照跑。
+  cleanup:
+    needs: build
+    if: ${{ always() && !inputs.donotpublish }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune orphaned releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          readarray -t keep <<< "${RELEASE_PREFIXES:-}"
+
+          removed=0
+          while read -r id tag; do
+            [ -n "${id:-}" ] || continue
+
+            orphan=1
+            for p in "${keep[@]}"; do
+              [ -n "$p" ] || continue
+              if [[ "$tag" == "$p"* ]]; then orphan=0; break; fi
+            done
+            [ "$orphan" -eq 0 ] && continue
+
+            gh api -X DELETE "repos/${{ github.repository }}/releases/$id" >/dev/null
+            gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" >/dev/null
+            echo "已回收失联 release: $tag"
+            removed=$((removed + 1))
+          done < <(gh api "repos/${{ github.repository }}/releases?per_page=100" \
+                     --jq '.[] | "\(.id) \(.tag_name)"')
+
+          echo "共回收 $removed 个失联 release"
 
   clean:
     needs: build

@@ -1,12 +1,17 @@
 # TVBoxOSC
 
 [![Build](https://img.shields.io/github/actions/workflow/status/zyqfork/TVBoxOSC/build-tvbox.yml?branch=master&logo=github&label=Build)](https://github.com/zyqfork/TVBoxOSC/actions/workflows/build-tvbox.yml)
-[![Release](https://img.shields.io/github/v/release/zyqfork/TVBoxOSC?color=orange&logo=github&label=Download)](https://github.com/zyqfork/TVBoxOSC/releases/latest)
+[![Releases](https://img.shields.io/badge/Releases-Download-orange?logo=github)](https://github.com/zyqfork/TVBoxOSC/releases)
 [![Downloads](https://img.shields.io/github/downloads/zyqfork/TVBoxOSC/total?color=yellow&logo=github&label=Downloads)](https://github.com/zyqfork/TVBoxOSC/releases)
 
 Builds APKs from the projects below and publishes them as
 [GitHub Releases](https://github.com/zyqfork/TVBoxOSC/releases). Releases are the
 only place APKs are published.
+
+Each target gets its own release, tagged `<owner>_<repo>_<branch>_<upstream commit date>`.
+There is deliberately **no single "latest" release** — open the
+[releases page](https://github.com/zyqfork/TVBoxOSC/releases) and pick the project you want.
+A `SHA256SUMS` file accompanies every release (`sha256sum -c SHA256SUMS`).
 
 ## Credits
 
