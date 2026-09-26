@@ -17,11 +17,11 @@ A `SHA256SUMS` file accompanies every release (`sha256sum -c SHA256SUMS`).
 
 | Repository                                                  | Branch    | Last built commit                          | Build time          |
 | ----------------------------------------------------------- | --------- | ------------------------------------------ | ------------------- |
-| [q215613905/TVBoxOS](https://github.com/q215613905/TVBoxOS) | `main`    | `ab11d289e09963a9daf65ca7f6b7a9a8cbe184e1` | 2026-09-26 13:00:58 |
+| [q215613905/TVBoxOS](https://github.com/q215613905/TVBoxOS) | `main`    | `ab11d289e09963a9daf65ca7f6b7a9a8cbe184e1` | 2026-09-26 13:39:51 |
 | [takagen99/Box](https://github.com/takagen99/Box)           | `main`    | `258a5fef61578869ae905ca230bdde9e99fc19a8` | 2026-09-26 13:12:35 |
 | [zyqfork/TV](https://github.com/zyqfork/TV)                 | `release` | `6a3e2db3deb42b18980bea39e07b8daeb445e5c8` | 2026-09-25 10:45:27 |
 
 `zyqfork/TV` is a source-buildable fork (ExoPlayer + MPV/FFmpeg); no FongMi
 compatibility patch is applied to it.
 
-_Last updated: 2026-09-26 13:12:35_
+_Last updated: 2026-09-26 13:39:51_
