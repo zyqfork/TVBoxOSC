@@ -238,14 +238,25 @@ jobs:
           done
 
           if [ -n "${{ matrix.fork }}" ]; then
+            # 这些 APK 有 70-90MB，zipflinger 打包时会把条目整个读进堆，而 gradle.properties
+            # 里钉的是 2G —— 并行打包下会以 OutOfMemoryError: Java heap space 让
+            # package*Release 失败（曾经在 packageLeanbackArmeabi_v7aRelease 上翻车）。
+            # fork 自己的 source-build.yml 也是为此刻意抬到 8G，这里保持一致。
+            JVMARGS="-Xmx8192m -Dfile.encoding=UTF-8 --add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED"
+            sed -i 's|^org\.gradle\.jvmargs=.*|org.gradle.jvmargs='"$JVMARGS"'|' gradle.properties
+            grep -n 'org.gradle.jvmargs' gradle.properties
+
             # media3compat 按 FONGMI_NATIVE_ABIS 决定给哪些 ABI 编原生库；
-            # 按 ABI 分两次编，一次 assemblerelease 会触发 mergeJavaRes 压缩信息错误
+            # 按 ABI 分两次编，一次 assemblerelease 会触发 mergeJavaRes 压缩信息错误。
+            # --no-daemon：两次调用各起一个单次 JVM，避免第二个 ABI 接着用第一个攒下来的堆。
             FONGMI_NATIVE_ABIS=arm64-v8a ./gradlew \
               assembleLeanbackArm64_v8aRelease assembleMobileArm64_v8aRelease \
-              --build-cache --parallel --daemon --stacktrace
+              --build-cache --max-workers=2 --no-daemon --stacktrace \
+              -Dorg.gradle.jvmargs="$JVMARGS"
             FONGMI_NATIVE_ABIS=armeabi-v7a ./gradlew \
               assembleLeanbackArmeabi_v7aRelease assembleMobileArmeabi_v7aRelease \
-              --build-cache --parallel --daemon --stacktrace
+              --build-cache --max-workers=2 --no-daemon --stacktrace \
+              -Dorg.gradle.jvmargs="$JVMARGS"
           else
             ./gradlew assemblerelease --build-cache --parallel --daemon --stacktrace
           fi
