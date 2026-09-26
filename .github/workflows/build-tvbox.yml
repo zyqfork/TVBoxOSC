@@ -296,8 +296,9 @@ jobs:
             echo '```'
           } > "apk/${{ matrix.userName }}-Release.log"
 
-          # 每个 APK 的校验和，方便下载后核对完整性（sha256sum -c SHA256SUMS）
-          ( cd apk && sha256sum ./*.apk > SHA256SUMS )
+          # 每个 APK 的校验和，方便下载后核对完整性（sha256sum -c SHA256SUMS）。
+          # 用 *.apk 而非 ./*.apk：后者会把路径写成 ./xxx.apk，清单里没必要带这个前缀。
+          ( cd apk && sha256sum *.apk > SHA256SUMS )
 
           echo "=== assets ==="
           ls -l apk/
